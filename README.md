@@ -1,6 +1,8 @@
-# Getting Started with Create React App
+<img src='./public/choco.png'>
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# 巧克力板
+
+像巧克力板一样的项目管理工具，基于react nestjs mysql开发。 
 
 ## Available Scripts
 
