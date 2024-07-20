@@ -1,4 +1,4 @@
-<img src='./public/choco.png'>
+<img src='choco.png'>
 
 # 巧克力板
 
