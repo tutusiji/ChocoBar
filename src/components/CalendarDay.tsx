@@ -48,9 +48,31 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
             onClick={handleDayClick}
         >
             {date && <div className="day-number">{date.getDate()}</div>}
-            {tasks.map((task) => (
-                <TaskItem key={task.id} task={task} onEdit={onTaskEdit} onDelete={onTaskDelete} />
-            ))}
+            {tasks.map((task) => {
+                const isStartDay = task.startDate.toDateString() === date?.toDateString();
+                const isWithinRange = task.startDate <= date! && task.endDate >= date!;
+                if (isStartDay) {
+                    const startDay = task.startDate.getDate();
+                    const endDay = task.endDate.getDate();
+                    const span = endDay - startDay + 1;
+                    return (
+                        <div
+                            key={task.id}
+                            className="task-item"
+                            style={{
+                                width: `calc(${span} * 100% - 10px)`,
+                                zIndex: 1,
+                            }}
+                            onClick={() => onTaskEdit(task.id)}
+                        >
+                            <TaskItem task={task} onEdit={onTaskEdit} />
+                        </div>
+                    );
+                } else if (isWithinRange) {
+                    return null;
+                }
+                return null;
+            })}
         </div>
     );
 }

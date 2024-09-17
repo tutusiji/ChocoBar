@@ -33,15 +33,7 @@ function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTa
                         key={index}
                         date={currentDay}
                         isToday={!!currentDay && currentDay.toDateString() === today.toDateString()}
-                        tasks={tasks.filter(
-                            (task) =>
-                                currentDay &&
-                                (
-                                    (task.startDate <= currentDay && task.endDate >= currentDay) ||
-                                    (task.startDate.toDateString() === currentDay.toDateString()) ||
-                                    (task.endDate.toDateString() === currentDay.toDateString())
-                                )
-                        )}
+                        tasks={tasks}
                         projects={projects}
                         onTaskCreate={onTaskCreate}
                         onTaskEdit={onTaskEdit}

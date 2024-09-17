@@ -27,6 +27,7 @@
 }
 
 .calendar-day {
+  position: relative;
   background-color: white;
   min-height: 100px;
   padding: 5px;
@@ -54,24 +55,28 @@
   cursor: move;
   font-size: 0.8em;
   position: relative;
+  height: 14px;
 }
 
-.task-item h4 {
-  margin: 0 0 5px 0;
+.task-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.task-item p {
+.task-content h4 {
   margin: 0;
-  font-size: 0.9em;
-  color: #666;
+  font-size: 0.8em;
+  line-height: 14px;
 }
 
 .resize-handle {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 5px;
+  width: 4px;
   cursor: ew-resize;
+  background-color: #99ccff;
 }
 
 .resize-handle.left {
@@ -139,4 +144,17 @@
 
 .resize-area.right {
   right: 0;
+}
+
+.task-span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 255, 0.1);
+  border: 1px solid rgba(0, 0, 255, 0.3);
+  z-index: 1;
 }

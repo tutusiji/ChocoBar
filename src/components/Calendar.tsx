@@ -39,6 +39,8 @@ function Calendar() {
         position: { x: 0, y: 0 },
     });
 
+    const [editTask, setEditTask] = useState<Task | null>(null);
+
     const handleTaskCreate = (title: string, project: string, startDate: Date, endDate: Date) => {
         const newTask: Task = {
             id: Date.now().toString(),
@@ -90,6 +92,15 @@ function Calendar() {
 
     const handleCloseModal = () => {
         setModalState({ isOpen: false, date: null, position: { x: 0, y: 0 } });
+        setEditTask(null);
+    };
+
+    const handleEditTask = (taskId: string) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            setEditTask(task);
+            setModalState({ isOpen: true, date: task.startDate, position: { x: 0, y: 0 } });
+        }
     };
 
     useEffect(() => {
@@ -146,6 +157,9 @@ function Calendar() {
                         onClose={handleCloseModal}
                         onAddProject={handleAddProject}
                         position={modalState.position}
+                        task={editTask}
+                        onEditTask={handleTaskEdit}
+                        onDeleteTask={handleTaskDelete}
                     />
                 )}
             </div>
