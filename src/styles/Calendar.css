@@ -1,5 +1,5 @@
 .calendar-container {
-  max-width: 1200px;
+  /* max-width: 1200px; */
   margin: 0 auto;
   padding: 20px;
 }
@@ -39,9 +39,10 @@
 }
 
 .day-number {
-  position: absolute;
+  /* position: absolute;
   top: 5px;
-  right: 5px;
+  right: 5px; */
+  text-align: right;
   font-size: 0.8em;
   color: #888;
 }
@@ -54,6 +55,7 @@
   margin-bottom: 5px;
   cursor: move;
   font-size: 0.8em;
+  z-index: 1;
   position: relative;
   height: 14px;
 }

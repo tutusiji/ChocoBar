@@ -148,6 +148,7 @@ function Calendar() {
                     onTaskDelete={handleTaskDelete}
                     onAddProject={handleAddProject}
                     onDayClick={handleDayClick}
+                    onEditTask={handleEditTask}
                 />
                 {modalState.isOpen && modalState.date && (
                     <CreateTaskModal

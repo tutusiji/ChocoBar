@@ -5,9 +5,11 @@ import { Task } from '../types';
 interface TaskItemProps {
     task: Task;
     onEdit: (taskId: string) => void;
+    onResize: (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => void;
+    onMove: (taskId: string, newStartDate: Date) => void;
 }
 
-function TaskItem({ task, onEdit }: TaskItemProps) {
+function TaskItem({ task, onEdit, onResize, onMove }: TaskItemProps) {
     const [{ isDragging }, drag, preview] = useDrag(() => ({
         type: 'TASK',
         item: { id: task.id, type: 'TASK' },
@@ -31,7 +33,10 @@ function TaskItem({ task, onEdit }: TaskItemProps) {
             ref={preview}
             className={`task-content ${isDragging ? 'dragging' : ''}`}
             style={{ opacity: isDragging ? 0.5 : 1 }}
-            onClick={() => onEdit(task.id)}
+            onClick={(e) => {
+                e.stopPropagation();
+                onEdit(task.id);
+            }}
         >
             <div ref={drag} className="task-inner-content">
                 <h4>{task.title}</h4>

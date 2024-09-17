@@ -12,9 +12,10 @@ interface CalendarMonthProps {
     onTaskDelete: (taskId: string) => void;
     onAddProject: (project: string) => void;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
+    onEditTask: (taskId: string) => void;
 }
 
-function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick }: CalendarMonthProps) {
+function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, onEditTask }: CalendarMonthProps) {
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
 
@@ -40,6 +41,7 @@ function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTa
                         onTaskDelete={onTaskDelete}
                         onAddProject={onAddProject}
                         onDayClick={onDayClick}
+                        onEditTask={onEditTask}
                     />
                 );
             })}

@@ -13,13 +13,15 @@ interface CalendarDayProps {
     onAddProject: (project: string) => void;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
     isToday: boolean;
+    onEditTask: (taskId: string) => void;
 }
 
-function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, isToday }: CalendarDayProps) {
+function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, isToday, onEditTask }: CalendarDayProps) {
     const [{ isOver }, drop] = useDrop(() => ({
         accept: ['TASK', 'RESIZE_LEFT', 'RESIZE_RIGHT'],
         drop: (item: { id: string, type: string }, monitor) => {
             if (date) {
+                console.log('Drop date:', date.toISOString());
                 if (item.type === 'TASK') {
                     onTaskEdit(item.id, undefined, undefined, date, undefined);
                 } else if (item.type === 'RESIZE_LEFT') {
@@ -27,10 +29,11 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
                 } else if (item.type === 'RESIZE_RIGHT') {
                     onTaskEdit(item.id, undefined, undefined, undefined, date);
                 }
+                return { date };
             }
         },
         collect: (monitor) => ({
-            isOver: !!monitor.isOver(),
+            isOver: !!monitor.isOver({ shallow: false }),
         }),
     }));
 
@@ -61,11 +64,21 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
                             className="task-item"
                             style={{
                                 width: `calc(${span} * 100% - 10px)`,
-                                zIndex: 1,
                             }}
-                            onClick={() => onTaskEdit(task.id)}
                         >
-                            <TaskItem task={task} onEdit={onTaskEdit} />
+                            <TaskItem
+                                task={task}
+                                onEdit={onEditTask}
+                                onResize={onTaskEdit}
+                                onMove={(taskId, newStartDate) => {
+                                    const taskToMove = tasks.find(t => t.id === taskId);
+                                    if (taskToMove) {
+                                        const duration = taskToMove.endDate.getTime() - taskToMove.startDate.getTime();
+                                        const newEndDate = new Date(newStartDate.getTime() + duration);
+                                        onTaskEdit(taskId, undefined, undefined, newStartDate, newEndDate);
+                                    }
+                                }}
+                            />
                         </div>
                     );
                 } else if (isWithinRange) {
