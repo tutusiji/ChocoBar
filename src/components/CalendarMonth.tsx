@@ -4,27 +4,17 @@ import { Task } from '../types';
 
 interface CalendarMonthProps {
     currentDate: Date;
+    today: Date;
     tasks: Task[];
     projects: string[];
     onTaskCreate: (title: string, project: string, startDate: Date, endDate: Date) => void;
     onTaskEdit: (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => void;
     onTaskDelete: (taskId: string) => void;
     onAddProject: (project: string) => void;
-    today: Date;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
 }
 
-function CalendarMonth({
-    currentDate,
-    today,
-    tasks,
-    projects,
-    onTaskCreate,
-    onTaskEdit,
-    onTaskDelete,
-    onAddProject,
-    onDayClick,
-}: CalendarMonthProps) {
+function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick }: CalendarMonthProps) {
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
 

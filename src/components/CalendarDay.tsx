@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDrop } from 'react-dnd';
 import TaskItem from './TaskItem';
-import CreateTaskModal from './CreateTaskModal';
 import { Task } from '../types';
 
 interface CalendarDayProps {
@@ -12,26 +11,43 @@ interface CalendarDayProps {
     onTaskEdit: (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => void;
     onTaskDelete: (taskId: string) => void;
     onAddProject: (project: string) => void;
-    isToday: boolean;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
+    isToday: boolean;
 }
 
-function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, isToday, onDayClick }: CalendarDayProps) {
-    if (!date) {
-        return <div className="calendar-day empty"></div>;
-    }
+function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, isToday }: CalendarDayProps) {
+    const [{ isOver }, drop] = useDrop(() => ({
+        accept: ['TASK', 'RESIZE_LEFT', 'RESIZE_RIGHT'],
+        drop: (item: { id: string, type: string }, monitor) => {
+            if (date) {
+                if (item.type === 'TASK') {
+                    onTaskEdit(item.id, undefined, undefined, date, undefined);
+                } else if (item.type === 'RESIZE_LEFT') {
+                    onTaskEdit(item.id, undefined, undefined, date, undefined);
+                } else if (item.type === 'RESIZE_RIGHT') {
+                    onTaskEdit(item.id, undefined, undefined, undefined, date);
+                }
+            }
+        },
+        collect: (monitor) => ({
+            isOver: !!monitor.isOver(),
+        }),
+    }));
 
     const handleDayClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        onDayClick(date, { x: e.clientX, y: e.clientY });
+        if (date) {
+            onDayClick(date, { x: e.clientX, y: e.clientY });
+        }
     };
 
     return (
         <div
-            className={`calendar-day ${isToday ? 'today' : ''}`}
+            ref={drop}
+            className={`calendar-day ${isToday ? 'today' : ''} ${isOver ? 'over' : ''}`}
             onClick={handleDayClick}
         >
-            <div className="day-number">{date.getDate()}</div>
+            {date && <div className="day-number">{date.getDate()}</div>}
             {tasks.map((task) => (
                 <TaskItem key={task.id} task={task} onEdit={onTaskEdit} onDelete={onTaskDelete} />
             ))}

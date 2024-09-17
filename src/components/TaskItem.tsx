@@ -15,7 +15,7 @@ function TaskItem({ task, onEdit, onDelete }: TaskItemProps) {
 
     const [{ isDragging }, drag] = useDrag(() => ({
         type: 'TASK',
-        item: { id: task.id, startDate: task.startDate, endDate: task.endDate },
+        item: { id: task.id, type: 'TASK' },
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging(),
         }),
@@ -26,24 +26,12 @@ function TaskItem({ task, onEdit, onDelete }: TaskItemProps) {
 
     const [, dragLeft] = useDrag(() => ({
         type: 'RESIZE_LEFT',
-        item: { id: task.id, startDate: task.startDate },
-        end: (item, monitor) => {
-            const dropResult = monitor.getDropResult();
-            if (dropResult) {
-                onEdit(task.id, undefined, undefined, (dropResult as any).date, undefined);
-            }
-        },
+        item: { id: task.id, type: 'RESIZE_LEFT' },
     }));
 
     const [, dragRight] = useDrag(() => ({
         type: 'RESIZE_RIGHT',
-        item: { id: task.id, endDate: task.endDate },
-        end: (item, monitor) => {
-            const dropResult = monitor.getDropResult();
-            if (dropResult) {
-                onEdit(task.id, undefined, undefined, undefined, (dropResult as any).date);
-            }
-        },
+        item: { id: task.id, type: 'RESIZE_RIGHT' },
     }));
 
     const handleSave = () => {

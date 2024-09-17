@@ -51,14 +51,16 @@ function Calendar() {
     };
 
     const handleTaskEdit = (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => {
-        setTasks(tasks.map(task =>
-            task.id === taskId ? {
-                ...task,
-                title: newTitle ?? task.title,
-                project: newProject ?? task.project,
-                startDate: newStartDate ?? task.startDate,
-                endDate: newEndDate ?? task.endDate
-            } : task
+        setTasks(prevTasks => prevTasks.map(task =>
+            task.id === taskId
+                ? {
+                    ...task,
+                    title: newTitle ?? task.title,
+                    project: newProject ?? task.project,
+                    startDate: newStartDate ?? task.startDate,
+                    endDate: newEndDate ?? task.endDate
+                }
+                : task
         ));
     };
 
