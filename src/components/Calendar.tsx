@@ -66,6 +66,14 @@ function Calendar() {
         ));
     };
 
+    const handleTaskEditModal = (taskId: string, position: { x: number; y: number }) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            setEditTask(task);
+            setModalState({ isOpen: true, date: task.startDate, position });
+        }
+    };
+
     const handleTaskDelete = (taskId: string) => {
         setTasks(tasks.filter(task => task.id !== taskId));
     };
@@ -93,14 +101,6 @@ function Calendar() {
     const handleCloseModal = () => {
         setModalState({ isOpen: false, date: null, position: { x: 0, y: 0 } });
         setEditTask(null);
-    };
-
-    const handleEditTask = (taskId: string) => {
-        const task = tasks.find(t => t.id === taskId);
-        if (task) {
-            setEditTask(task);
-            setModalState({ isOpen: true, date: task.startDate, position: { x: 0, y: 0 } });
-        }
     };
 
     useEffect(() => {
@@ -148,7 +148,7 @@ function Calendar() {
                     onTaskDelete={handleTaskDelete}
                     onAddProject={handleAddProject}
                     onDayClick={handleDayClick}
-                    onEditTask={handleEditTask}
+                    onEditTask={handleTaskEditModal}
                 />
                 {modalState.isOpen && modalState.date && (
                     <CreateTaskModal

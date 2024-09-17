@@ -12,7 +12,7 @@ interface CalendarMonthProps {
     onTaskDelete: (taskId: string) => void;
     onAddProject: (project: string) => void;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
-    onEditTask: (taskId: string) => void;
+    onEditTask: (taskId: string, position: { x: number; y: number }) => void;
 }
 
 function CalendarMonth({ currentDate, today, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, onEditTask }: CalendarMonthProps) {

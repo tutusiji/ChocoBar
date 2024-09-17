@@ -13,7 +13,7 @@ interface CalendarDayProps {
     onAddProject: (project: string) => void;
     onDayClick: (date: Date, position: { x: number; y: number }) => void;
     isToday: boolean;
-    onEditTask: (taskId: string) => void;
+    onEditTask: (taskId: string, position: { x: number; y: number }) => void;
 }
 
 function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, isToday, onEditTask }: CalendarDayProps) {
@@ -44,6 +44,12 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
         }
     };
 
+    const handleTaskClick = (e: React.MouseEvent, taskId: string) => {
+        e.stopPropagation();
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        onEditTask(taskId, { x: rect.left, y: rect.bottom });
+    };
+
     return (
         <div
             ref={drop}
@@ -65,6 +71,7 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
                             style={{
                                 width: `calc(${span} * 100% - 10px)`,
                             }}
+                            onClick={(e) => handleTaskClick(e, task.id)}
                         >
                             <TaskItem
                                 task={task}

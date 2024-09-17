@@ -4,7 +4,7 @@ import { Task } from '../types';
 
 interface TaskItemProps {
     task: Task;
-    onEdit: (taskId: string) => void;
+    onEdit: (taskId: string, position: { x: number; y: number }) => void;
     onResize: (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => void;
     onMove: (taskId: string, newStartDate: Date) => void;
 }
@@ -35,7 +35,8 @@ function TaskItem({ task, onEdit, onResize, onMove }: TaskItemProps) {
             style={{ opacity: isDragging ? 0.5 : 1 }}
             onClick={(e) => {
                 e.stopPropagation();
-                onEdit(task.id);
+                const rect = e.currentTarget.getBoundingClientRect();
+                onEdit(task.id, { x: rect.left, y: rect.bottom });
             }}
         >
             <div ref={drag} className="task-inner-content">
