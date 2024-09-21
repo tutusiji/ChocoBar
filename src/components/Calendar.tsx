@@ -7,7 +7,9 @@ import CreateTaskModal from './CreateTaskModal';
 import { Task } from '../types';
 import '../styles/Calendar.css';
 
+// 日历组件
 function Calendar() {
+    // 初始化任务状态，从本地存储中加载
     const [tasks, setTasks] = useState<Task[]>(() => {
         const savedTasks = localStorage.getItem('tasks');
         if (savedTasks) {
@@ -20,15 +22,19 @@ function Calendar() {
         return [];
     });
 
+    // 初始化项目状态，从本地存储中加载
     const [projects, setProjects] = useState<string[]>(() => {
         const savedProjects = localStorage.getItem('projects');
         return savedProjects ? JSON.parse(savedProjects) : ['默认项目'];
     });
 
+    // 当前显示的日期
     const [currentDate, setCurrentDate] = useState(new Date());
 
+    // 今天的日期
     const [today] = useState(new Date());
 
+    // 模态框状态
     const [modalState, setModalState] = useState<{
         isOpen: boolean;
         date: Date | null;
@@ -39,8 +45,10 @@ function Calendar() {
         position: { x: 0, y: 0 },
     });
 
+    // 正在编辑的任务
     const [editTask, setEditTask] = useState<Task | null>(null);
 
+    // 创建新任务的处理函数
     const handleTaskCreate = (title: string, project: string, startDate: Date, endDate: Date) => {
         const newTask: Task = {
             id: Date.now().toString(),
@@ -52,6 +60,7 @@ function Calendar() {
         setTasks([...tasks, newTask]);
     };
 
+    // 编辑任务的处理函数
     const handleTaskEdit = (taskId: string, newTitle?: string, newProject?: string, newStartDate?: Date, newEndDate?: Date) => {
         setTasks(prevTasks => prevTasks.map(task =>
             task.id === taskId
@@ -66,6 +75,7 @@ function Calendar() {
         ));
     };
 
+    // 打开编辑任务模态框的处理函数
     const handleTaskEditModal = (taskId: string, position: { x: number; y: number }) => {
         const task = tasks.find(t => t.id === taskId);
         if (task) {
@@ -74,35 +84,43 @@ function Calendar() {
         }
     };
 
+    // 删除任务的处理函数
     const handleTaskDelete = (taskId: string) => {
         setTasks(tasks.filter(task => task.id !== taskId));
     };
 
+    // 添加新项目的处理函数
     const handleAddProject = (project: string) => {
         setProjects([...projects, project]);
     };
 
+    // 切换到上一个月的处理函数
     const handlePrevMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     };
 
+    // 切换到下一个月的处理函数
     const handleNextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     };
 
+    // 切换到今天的处理函数
     const handleToday = () => {
         setCurrentDate(new Date());
     };
 
+    // 点击日期的处理函数
     const handleDayClick = (date: Date, position: { x: number; y: number }) => {
         setModalState({ isOpen: true, date, position });
     };
 
+    // 关闭模态框的处理函数
     const handleCloseModal = () => {
         setModalState({ isOpen: false, date: null, position: { x: 0, y: 0 } });
         setEditTask(null);
     };
 
+    // 保存任务到本地存储
     useEffect(() => {
         localStorage.setItem('tasks', JSON.stringify(tasks.map(task => ({
             ...task,
@@ -111,10 +129,12 @@ function Calendar() {
         }))));
     }, [tasks]);
 
+    // 保存项目到本地存储
     useEffect(() => {
         localStorage.setItem('projects', JSON.stringify(projects));
     }, [projects]);
 
+    // 点击模态框外部关闭模态框
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (modalState.isOpen && !(event.target as Element).closest('.modal')) {

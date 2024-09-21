@@ -3,6 +3,7 @@ import { useDrop } from 'react-dnd';
 import TaskItem from './TaskItem';
 import { Task } from '../types';
 
+// CalendarDay 组件的属性接口
 interface CalendarDayProps {
     date: Date | null;
     tasks: Task[];
@@ -16,12 +17,15 @@ interface CalendarDayProps {
     onEditTask: (taskId: string, position: { x: number; y: number }) => void;
 }
 
+// CalendarDay 组件：用于渲染日历中的单个日期格子
 function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDelete, onAddProject, onDayClick, isToday, onEditTask }: CalendarDayProps) {
+    // 使用 useDrop 钩子设置拖放功能
     const [{ isOver }, drop] = useDrop(() => ({
         accept: ['TASK', 'RESIZE_LEFT', 'RESIZE_RIGHT'],
         drop: (item: { id: string, type: string }, monitor) => {
             if (date) {
                 console.log('Drop date:', date.toISOString());
+                // 根据拖拽类型执行不同的编辑操作
                 if (item.type === 'TASK') {
                     onTaskEdit(item.id, undefined, undefined, date, undefined);
                 } else if (item.type === 'RESIZE_LEFT') {
@@ -37,13 +41,16 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
         }),
     }));
 
+    // 处理日期点击事件的函数
     const handleDayClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
+        e.stopPropagation(); // 阻止事件冒泡
         if (date) {
+            // 如果有日期，则调用 onDayClick 函数，并传递日期和点击位置
             onDayClick(date, { x: e.clientX, y: e.clientY });
         }
     };
 
+    // 处理任务点击事件的函数
     const handleTaskClick = (e: React.MouseEvent, taskId: string) => {
         e.stopPropagation();
         const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -58,9 +65,11 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
         >
             {date && <div className="day-number">{date.getDate()}</div>}
             {tasks.map((task) => {
+                // 判断任务是否在当前日期开始或范围内
                 const isStartDay = task.startDate.toDateString() === date?.toDateString();
                 const isWithinRange = task.startDate <= date! && task.endDate >= date!;
                 if (isStartDay) {
+                    // 计算任务跨越的天数
                     const startDay = task.startDate.getDate();
                     const endDay = task.endDate.getDate();
                     const span = endDay - startDay + 1;
@@ -78,6 +87,7 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
                                 onEdit={onEditTask}
                                 onResize={onTaskEdit}
                                 onMove={(taskId, newStartDate) => {
+                                    // 处理任务移动
                                     const taskToMove = tasks.find(t => t.id === taskId);
                                     if (taskToMove) {
                                         const duration = taskToMove.endDate.getTime() - taskToMove.startDate.getTime();
@@ -89,7 +99,7 @@ function CalendarDay({ date, tasks, projects, onTaskCreate, onTaskEdit, onTaskDe
                         </div>
                     );
                 } else if (isWithinRange) {
-                    return null;
+                    return null; // 如果任务在范围内但不是开始日，则不渲染
                 }
                 return null;
             })}

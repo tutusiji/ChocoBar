@@ -1,6 +1,7 @@
 import React from 'react';
 import Calendar from './components/Calendar';
 
+// App 组件：应用程序的主要入口点
 function App() {
     return (
         <div className="App">
