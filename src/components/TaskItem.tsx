@@ -12,7 +12,6 @@ interface TaskItemProps {
 
 // TaskItem 组件：用于渲染单个任务项
 function TaskItem({ task, onEdit, onResize, onMove }: TaskItemProps) {
-    // 使用 useDrag 钩子设置任务拖拽
     const [{ isDragging }, drag, preview] = useDrag(() => ({
         type: 'TASK',
         item: { id: task.id, type: 'TASK' },
