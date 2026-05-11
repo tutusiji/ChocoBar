@@ -19,3 +19,5 @@ winreg = "0.52"
 dirs = "6"
 sha2 = "0.10"
 base64 = "0.22"
+ico = "0.3"
+image = { version = "0.25", default-features = false, features = ["png"] }

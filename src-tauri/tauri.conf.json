@@ -14,13 +14,15 @@
       {
         "label": "main",
         "title": "ChocoPanel",
-        "width": 800,
-        "height": 500,
+        "width": 1200,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "resizable": false,
+        "resizable": true,
         "visible": true,
         "center": true
       }

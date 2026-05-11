@@ -1,7 +1,6 @@
 :root {
-  --panel-bg: rgba(30, 30, 30, 0.92);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --panel-bg: rgba(30, 30, 30, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.06);
   --cell-bg: rgba(255, 255, 255, 0.04);
   --cell-hover: rgba(255, 255, 255, 0.08);
   --cell-active: rgba(255, 255, 255, 0.12);
@@ -15,10 +14,10 @@
   --danger-hover: #f06060;
   --toolbar-bg: rgba(255, 255, 255, 0.03);
   --search-bg: rgba(40, 40, 40, 0.95);
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 8px;
+  --radius-sm: 6px;
   --cell-size: 88px;
-  --gap: 8px;
+  --gap: 6px;
 }
 
 * {
@@ -40,13 +39,12 @@ body {
   width: 100vw;
   height: 100vh;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 12px;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -54,10 +52,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.2);
 }

@@ -1,26 +1,19 @@
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
 import { AppIcon } from "./AppIcon";
-import type { PinnedApp } from "../types";
-import { moveAppInSequence } from "../utils/grid";
+import type { AppItem, PinnedApp } from "../types";
+
+const CELL_SIZE = 88;
+const GAP = 6;
+const PADDING = 10;
 
 /**
  * 应用网格组件
  * 支持顺序模式和自由拼贴模式，编辑模式下可拖拽排序
+ * 支持从桌面拖入文件添加应用
+ * 网格列数和行数根据容器尺寸自动计算
  */
 export function AppGrid() {
   const {
@@ -28,151 +21,263 @@ export function AppGrid() {
     layoutMode,
     editMode,
     gridCols,
+    gridRows,
     movePinnedApp,
     reorderPinnedApps,
+    addPinnedApp,
+    setGridSize,
   } = useAppStore();
 
-  const [activeApp, setActiveApp] = useState<PinnedApp | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [fileDropHover, setFileDropHover] = useState(false);
+  const dragSourceRef = useRef<PinnedApp | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  );
+  // 自动计算网格列数和行数（基于容器尺寸）
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-  // 拖拽开始时记录当前拖拽的应用
-  const handleDragStart = (event: DragStartEvent) => {
-    const app = pinnedApps.find((p) => p.id === event.active.id);
-    setActiveApp(app || null);
-  };
-
-  // 拖拽结束时根据布局模式执行排序或交换位置
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveApp(null);
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) return;
-
-    if (layoutMode === "sequential") {
-      const oldIndex = pinnedApps.findIndex((p) => p.id === active.id);
-      const newIndex = pinnedApps.findIndex((p) => p.id === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = moveAppInSequence(pinnedApps, oldIndex, newIndex, gridCols);
-        reorderPinnedApps(reordered);
+    const updateGrid = () => {
+      const w = el.clientWidth - PADDING * 2;
+      const h = el.clientHeight - PADDING * 2;
+      const cols = Math.max(1, Math.floor((w + GAP) / (CELL_SIZE + GAP)));
+      const rows = Math.max(1, Math.floor((h + GAP) / (CELL_SIZE + GAP)));
+      if (cols !== gridCols || rows !== gridRows) {
+        setGridSize(cols, rows);
       }
-    } else {
-      // 自由拼贴模式：交换两个应用的位置
-      const draggedApp = pinnedApps.find((p) => p.id === active.id);
-      const targetApp = pinnedApps.find((p) => p.id === over.id);
-      if (draggedApp && targetApp) {
-        movePinnedApp(draggedApp.id, targetApp.grid_x, targetApp.grid_y);
-        movePinnedApp(targetApp.id, draggedApp.grid_x, draggedApp.grid_y);
-      }
-    }
-  };
+    };
 
-  // 顺序模式下按 order 排序
-  const sortedApps =
-    layoutMode === "sequential"
-      ? [...pinnedApps].sort((a, b) => a.order - b.order)
-      : pinnedApps;
+    updateGrid();
+    const observer = new ResizeObserver(updateGrid);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [gridCols, gridRows, setGridSize]);
 
-  const appIds = sortedApps.map((p) => p.id);
+  // 监听文件拖放事件（从桌面拖入）
+  useEffect(() => {
+    if (!editMode) return;
 
-  // 自由拼贴模式的网格样式
-  const gridStyle: React.CSSProperties =
-    layoutMode === "free-tile"
-      ? {
-          display: "grid",
-          gridTemplateColumns: `repeat(${gridCols}, var(--cell-size))`,
-          gap: "var(--gap)",
-          justifyContent: "center",
+    const unlistenDrop = listen<string[]>("file-drop", async (event) => {
+      const paths = event.payload;
+      for (const filePath of paths) {
+        const lower = filePath.toLowerCase();
+        if (
+          lower.endsWith(".exe") ||
+          lower.endsWith(".lnk") ||
+          lower.endsWith(".bat") ||
+          lower.endsWith(".cmd")
+        ) {
+          try {
+            const app = await invoke<AppItem | null>("resolve_app_from_path", {
+              path: filePath,
+            });
+            if (app) {
+              // 检查是否已存在
+              const exists = pinnedApps.some((p) => p.id === app.id);
+              if (!exists) {
+                addPinnedApp(app);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to resolve app:", e);
+          }
         }
-      : {};
+      }
+      setFileDropHover(false);
+    });
 
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={appIds} strategy={rectSortingStrategy}>
-        <div className="grid-container">
-          <div
-            className={`grid ${editMode ? "edit-mode" : ""}`}
-            style={gridStyle}
-          >
-            {layoutMode === "sequential"
-              ? sortedApps.map((app) => (
-                  <div key={app.id} className="grid-cell">
-                    <AppIcon app={app} />
-                  </div>
-                ))
-              : // 自由拼贴模式：渲染所有网格单元格
-                renderFreeTileGrid(sortedApps, gridCols, editMode)}
-          </div>
-        </div>
-      </SortableContext>
-      <DragOverlay>
-        {activeApp ? (
-          <div className="grid-cell" style={{ opacity: 0.8 }}>
-            <AppIcon app={activeApp} />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    const unlistenEnter = listen<string[]>("file-drop-enter", () => {
+      setFileDropHover(true);
+    });
+
+    const unlistenLeave = listen("file-drop-leave", () => {
+      setFileDropHover(false);
+    });
+
+    return () => {
+      unlistenDrop.then((fn) => fn());
+      unlistenEnter.then((fn) => fn());
+      unlistenLeave.then((fn) => fn());
+    };
+  }, [editMode, pinnedApps, addPinnedApp]);
+
+  // 内部拖拽：记录拖拽源应用并设置拖拽效果
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, app: PinnedApp) => {
+      dragSourceRef.current = app;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", app.id);
+      const target = e.target as HTMLElement;
+      requestAnimationFrame(() => {
+        target.classList.add("dragging");
+      });
+    },
+    []
   );
-}
 
-/**
- * 渲染自由拼贴模式的网格
- * 遍历所有网格单元格，有应用的位置渲染图标，空位渲染占位格
- *
- * @param apps - 已固定的应用列表
- * @param cols - 网格列数
- * @param editMode - 是否处于编辑模式
- * @returns 网格单元格 React 节点数组
- */
-function renderFreeTileGrid(
-  apps: PinnedApp[],
-  cols: number,
-  editMode: boolean
-) {
-  const occupiedMap = new Map<string, PinnedApp>();
-  let maxRow = 3; // minimum 4 rows
+  // 拖拽结束时清理状态
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    const target = e.target as HTMLElement;
+    target.classList.remove("dragging");
+    dragSourceRef.current = null;
+    setDragOverCell(null);
+  }, []);
 
-  for (const app of apps) {
-    occupiedMap.set(`${app.grid_x},${app.grid_y}`, app);
-    maxRow = Math.max(maxRow, app.grid_y);
-  }
+  // 拖拽经过单元格时高亮显示
+  const handleDragOver = useCallback(
+    (e: React.DragEvent, cellKey: string) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDragOverCell(cellKey);
+    },
+    []
+  );
 
-  const rows = maxRow + 1;
+  // 拖拽离开单元格时取消高亮
+  const handleDragLeave = useCallback(() => {
+    setDragOverCell(null);
+  }, []);
+
+  // 放置时根据布局模式执行排序或交换位置
+  const handleDrop = useCallback(
+    (e: React.DragEvent, targetX: number, targetY: number) => {
+      e.preventDefault();
+      setDragOverCell(null);
+
+      const source = dragSourceRef.current;
+      if (!source) return;
+
+      if (layoutMode === "sequential") {
+        const targetApp = pinnedApps.find(
+          (p) => p.grid_x === targetX && p.grid_y === targetY
+        );
+        if (targetApp && targetApp.id !== source.id) {
+          const oldIndex = pinnedApps.findIndex((p) => p.id === source.id);
+          const newIndex = pinnedApps.findIndex((p) => p.id === targetApp.id);
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const result = [...pinnedApps];
+            const [moved] = result.splice(oldIndex, 1);
+            result.splice(newIndex, 0, moved);
+            const reordered = result.map((p, i) => ({
+              ...p,
+              grid_x: i % gridCols,
+              grid_y: Math.floor(i / gridCols),
+              order: i,
+            }));
+            reorderPinnedApps(reordered);
+          }
+        }
+      } else {
+        const occupied = pinnedApps.find(
+          (p) =>
+            p.grid_x === targetX && p.grid_y === targetY && p.id !== source.id
+        );
+        if (occupied) {
+          movePinnedApp(source.id, targetX, targetY);
+          movePinnedApp(occupied.id, source.grid_x, source.grid_y);
+        } else {
+          movePinnedApp(source.id, targetX, targetY);
+        }
+      }
+
+      dragSourceRef.current = null;
+    },
+    [pinnedApps, layoutMode, gridCols, movePinnedApp, reorderPinnedApps]
+  );
+
+  const maxRow =
+    layoutMode === "sequential"
+      ? Math.max(gridRows, Math.ceil(pinnedApps.length / gridCols))
+      : gridRows;
+
   const cells: React.ReactNode[] = [];
 
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const key = `${x},${y}`;
-      const app = occupiedMap.get(key);
+  if (layoutMode === "sequential") {
+    const sorted = [...pinnedApps].sort((a, b) => a.order - b.order);
+    sorted.forEach((app, i) => {
+      const x = i % gridCols;
+      const y = Math.floor(i / gridCols);
+      const cellKey = `${x},${y}`;
+      cells.push(
+        <div
+          key={cellKey}
+          className={`grid-cell ${editMode ? "edit-mode" : ""} ${
+            dragOverCell === cellKey ? "drop-hover" : ""
+          }`}
+          onDragOver={editMode ? (e) => handleDragOver(e, cellKey) : undefined}
+          onDragLeave={editMode ? handleDragLeave : undefined}
+          onDrop={editMode ? (e) => handleDrop(e, x, y) : undefined}
+        >
+          <AppIcon app={app} onDragStart={handleDragStart} />
+        </div>
+      );
+    });
 
-      if (app) {
-        cells.push(
-          <div key={key} className="grid-cell">
-            <AppIcon app={app} />
-          </div>
-        );
-      } else {
+    if (editMode) {
+      const totalCells = maxRow * gridCols;
+      for (let i = sorted.length; i < totalCells; i++) {
+        const x = i % gridCols;
+        const y = Math.floor(i / gridCols);
+        const cellKey = `${x},${y}`;
         cells.push(
           <div
-            key={key}
-            className={`grid-cell ${editMode ? "edit-mode" : ""}`}
+            key={cellKey}
+            className={`grid-cell edit-mode ${
+              dragOverCell === cellKey ? "drop-hover" : ""
+            }`}
+            onDragOver={(e) => handleDragOver(e, cellKey)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, x, y)}
           />
         );
       }
     }
+  } else {
+    const occupiedMap = new Map<string, PinnedApp>();
+    for (const app of pinnedApps) {
+      occupiedMap.set(`${app.grid_x},${app.grid_y}`, app);
+    }
+
+    for (let y = 0; y < maxRow; y++) {
+      for (let x = 0; x < gridCols; x++) {
+        const cellKey = `${x},${y}`;
+        const app = occupiedMap.get(cellKey);
+
+        cells.push(
+          <div
+            key={cellKey}
+            className={`grid-cell ${editMode ? "edit-mode" : ""} ${
+              dragOverCell === cellKey ? "drop-hover" : ""
+            }`}
+            onDragOver={editMode ? (e) => handleDragOver(e, cellKey) : undefined}
+            onDragLeave={editMode ? handleDragLeave : undefined}
+            onDrop={editMode ? (e) => handleDrop(e, x, y) : undefined}
+          >
+            {app && <AppIcon app={app} onDragStart={handleDragStart} />}
+          </div>
+        );
+      }
+    }
   }
 
-  return cells;
+  return (
+    <div
+      ref={containerRef}
+      className={`grid-container ${fileDropHover ? "file-drop-active" : ""}`}
+      onDragEnd={handleDragEnd}
+    >
+      <div
+        className="grid"
+        style={{ "--grid-cols": gridCols } as React.CSSProperties}
+      >
+        {cells}
+      </div>
+      {fileDropHover && editMode && (
+        <div className="file-drop-overlay">
+          <span>Drop to add application</span>
+        </div>
+      )}
+    </div>
+  );
 }

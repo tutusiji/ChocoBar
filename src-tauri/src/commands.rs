@@ -1,5 +1,8 @@
 use crate::app_scanner::{self, AppItem};
-use crate::state::{AppState, LayoutMode, PinnedApp};
+use crate::icon_extractor;
+use crate::shortcut;
+use crate::state::{AppState, BackgroundMode, LayoutMode, PinnedApp};
+use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
@@ -15,12 +18,47 @@ pub fn search_apps(query: String) -> Vec<AppItem> {
     app_scanner::search_apps(&query)
 }
 
-/// IPC 命令：启动指定路径的应用程序
+/// IPC 命令：从文件路径解析应用信息
 ///
-/// 对 `.lnk` 快捷方式文件使用 `cmd /C start` 打开，其他直接执行
+/// 支持 .exe、.lnk 等文件，提取名称和图标
+#[tauri::command]
+pub fn resolve_app_from_path(path: String) -> Option<AppItem> {
+    use std::path::Path;
+
+    let p = Path::new(&path);
+    if !p.exists() {
+        return None;
+    }
+
+    let name = p
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_bytes());
+    let id = format!("{:x}", hasher.finalize());
+
+    let icon_data = if path.to_lowercase().ends_with(".exe") {
+        icon_extractor::extract_icon(None, &path)
+    } else if path.to_lowercase().ends_with(".lnk") {
+        icon_extractor::extract_icon(None, &path)
+    } else {
+        None
+    };
+
+    Some(AppItem {
+        id,
+        name,
+        path,
+        icon_data,
+    })
+}
+
+/// IPC 命令：启动指定路径的应用程序
 #[tauri::command]
 pub fn launch_app(path: String) -> Result<(), String> {
-    // .lnk 快捷方式文件通过 shell 打开
     if path.to_lowercase().ends_with(".lnk") {
         std::process::Command::new("cmd")
             .args(["/C", "start", "", &path])
@@ -34,31 +72,140 @@ pub fn launch_app(path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// IPC 命令：获取当前应用状态（固定应用列表、布局模式、网格尺寸）
+/// IPC 命令：获取当前应用状态
 #[tauri::command]
 pub fn get_state(state: State<'_, Mutex<AppState>>) -> AppState {
     let state = state.lock().unwrap();
     state.clone()
 }
 
-/// IPC 命令：保存应用状态到内存和本地文件
+/// IPC 命令：保存应用状态
 #[tauri::command]
 pub fn save_state(
     pinned_apps: Vec<PinnedApp>,
     layout_mode: LayoutMode,
-    grid_cols: u32,
-    grid_rows: u32,
+    opacity: f64,
+    background_image: Option<String>,
+    background_mode: BackgroundMode,
+    shortcut_key: String,
     state: State<'_, Mutex<AppState>>,
 ) {
     let mut s = state.lock().unwrap();
     s.pinned_apps = pinned_apps;
     s.layout_mode = layout_mode;
-    s.grid_cols = grid_cols;
-    s.grid_rows = grid_rows;
+    s.opacity = opacity;
+    s.background_image = background_image;
+    s.background_mode = background_mode;
+    s.shortcut_key = shortcut_key;
     s.save();
 }
 
-/// IPC 命令：切换面板显示/隐藏状态
+/// IPC 命令：获取窗口尺寸
+#[tauri::command]
+pub fn get_window_size(app: AppHandle) -> (u32, u32) {
+    if let Some(window) = app.get_webview_window("main") {
+        if let Ok(size) = window.inner_size() {
+            return (size.width, size.height);
+        }
+    }
+    (1200, 800)
+}
+
+/// IPC 命令：设置窗口尺寸
+#[tauri::command]
+pub fn set_window_size(width: u32, height: u32, app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .set_size(tauri::PhysicalSize::new(width, height))
+            .map_err(|e| format!("Failed to set size: {}", e))?;
+        window.center().ok();
+    }
+    Ok(())
+}
+
+/// IPC 命令：设置面板透明度
+#[tauri::command]
+pub fn set_window_opacity(opacity: f64, state: State<'_, Mutex<AppState>>) {
+    let mut s = state.lock().unwrap();
+    s.opacity = opacity.clamp(0.0, 1.0);
+    s.save();
+}
+
+/// IPC 命令：选择背景图片文件
+#[tauri::command]
+pub fn pick_background_image() -> Option<String> {
+    use std::io::Read;
+
+    let ps_script = r#"
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Filter = 'Image Files|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp'
+    $dialog.Title = 'Select Background Image'
+    if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName }
+    "#;
+
+    let output = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", ps_script])
+        .output()
+        .ok()?;
+
+    let file_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if file_path.is_empty() {
+        return None;
+    }
+
+    let mut file = std::fs::File::open(&file_path).ok()?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf).ok()?;
+
+    let ext = std::path::Path::new(&file_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png")
+        .to_lowercase();
+
+    let mime = match ext.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "webp" => "image/webp",
+        _ => "image/png",
+    };
+
+    Some(format!(
+        "data:{};base64,{}",
+        mime,
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &buf)
+    ))
+}
+
+/// IPC 命令：获取应用信息（About 对话框）
+#[tauri::command]
+pub fn get_app_info() -> serde_json::Value {
+    serde_json::json!({
+        "name": "ChocoPanel",
+        "version": "0.1.0",
+        "description": "A lightweight Windows quick-launch panel",
+        "author": "ChocoPanel Developer",
+        "website": "https://github.com/chocopanel",
+        "email": "dev@chocopanel.app",
+        "license": "MIT"
+    })
+}
+
+/// IPC 命令：检查更新
+#[tauri::command]
+pub fn check_update() -> serde_json::Value {
+    serde_json::json!({
+        "has_update": false,
+        "current_version": "0.1.0",
+        "latest_version": "0.1.0",
+        "message": "You are using the latest version."
+    })
+}
+
+/// IPC 命令：切换面板显示/隐藏
 #[tauri::command]
 pub fn toggle_panel(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -71,7 +218,7 @@ pub fn toggle_panel(app: AppHandle) {
     }
 }
 
-/// IPC 命令：显示面板窗口并获取焦点
+/// IPC 命令：显示面板窗口
 #[tauri::command]
 pub fn show_panel(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -86,4 +233,27 @@ pub fn hide_panel(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         window.hide().ok();
     }
+}
+
+/// IPC 命令：设置窗口是否可调整大小
+#[tauri::command]
+pub fn set_window_resizable(resizable: bool, app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .set_resizable(resizable)
+            .map_err(|e| format!("Failed to set resizable: {}", e))?;
+    }
+    Ok(())
+}
+
+/// IPC 命令：更新全局快捷键
+#[tauri::command]
+pub fn update_shortcut(shortcut_key: String, app: AppHandle, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    {
+        let mut s = state.lock().unwrap();
+        s.shortcut_key = shortcut_key.clone();
+        s.save();
+    }
+    shortcut::re_register_shortcut(&app, &shortcut_key)
+        .map_err(|e| format!("Failed to register shortcut: {}", e))
 }

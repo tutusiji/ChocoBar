@@ -1,22 +1,37 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppItem, PinnedApp, LayoutMode, AppState } from "../types";
+import type {
+  AppItem,
+  PinnedApp,
+  LayoutMode,
+  BackgroundMode,
+  AppState,
+  AppInfo,
+  UpdateInfo,
+} from "../types";
 
 interface AppStore {
-  // 系统中发现的所有应用
   allApps: AppItem[];
-  // 用户已固定的应用
   pinnedApps: PinnedApp[];
-  // UI 状态
   layoutMode: LayoutMode;
   editMode: boolean;
   searchOpen: boolean;
+  settingsOpen: boolean;
+  aboutOpen: boolean;
+  updateOpen: boolean;
   searchQuery: string;
   searchResults: AppItem[];
   gridCols: number;
   gridRows: number;
+  windowWidth: number;
+  windowHeight: number;
+  opacity: number;
+  backgroundImage: string | null;
+  backgroundMode: BackgroundMode;
+  appInfo: AppInfo | null;
+  updateInfo: UpdateInfo | null;
+  shortcutKey: string;
 
-  // 操作方法
   loadState: () => Promise<void>;
   saveState: () => Promise<void>;
   searchApps: (query: string) => Promise<void>;
@@ -27,8 +42,21 @@ interface AppStore {
   setLayoutMode: (mode: LayoutMode) => void;
   toggleEditMode: () => void;
   setSearchOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
+  setAboutOpen: (open: boolean) => void;
+  setUpdateOpen: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
+  setGridSize: (cols: number, rows: number) => void;
+  setWindowSize: (width: number, height: number) => Promise<void>;
+  setOpacity: (opacity: number) => void;
+  setBackgroundImage: (img: string | null) => void;
+  setBackgroundMode: (mode: BackgroundMode) => void;
+  pickBackgroundImage: () => Promise<void>;
+  fetchAppInfo: () => Promise<void>;
+  checkUpdate: () => Promise<void>;
   launchApp: (path: string) => Promise<void>;
+  setShortcutKey: (key: string) => void;
+  saveShortcutKey: (key: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -37,48 +65,69 @@ export const useAppStore = create<AppStore>((set, get) => ({
   layoutMode: "sequential",
   editMode: false,
   searchOpen: false,
+  settingsOpen: false,
+  aboutOpen: false,
+  updateOpen: false,
   searchQuery: "",
   searchResults: [],
   gridCols: 8,
   gridRows: 4,
+  windowWidth: 1200,
+  windowHeight: 800,
+  opacity: 0.85,
+  backgroundImage: null,
+  backgroundMode: "stretch",
+  appInfo: null,
+  updateInfo: null,
+  shortcutKey: "ctrl+space",
 
-  /** 从后端加载持久化状态（固定应用、布局模式、网格尺寸） */
   loadState: async () => {
     try {
       const state = await invoke<AppState>("get_state");
+      const [w, h] = await invoke<[number, number]>("get_window_size");
       set({
         pinnedApps: state.pinned_apps,
         layoutMode: state.layout_mode,
-        gridCols: state.grid_cols,
-        gridRows: state.grid_rows,
+        opacity: state.opacity,
+        backgroundImage: state.background_image,
+        backgroundMode: state.background_mode,
+        shortcutKey: state.shortcut_key || "ctrl+space",
+        windowWidth: w,
+        windowHeight: h,
       });
     } catch (e) {
       console.error("Failed to load state:", e);
     }
   },
 
-  /** 将当前状态持久化保存到后端 */
   saveState: async () => {
-    const { pinnedApps, layoutMode, gridCols, gridRows } = get();
+    const {
+      pinnedApps,
+      layoutMode,
+      opacity,
+      backgroundImage,
+      backgroundMode,
+      shortcutKey,
+    } = get();
     try {
       await invoke("save_state", {
         pinnedApps,
         layoutMode,
-        gridCols,
-        gridRows,
+        opacity,
+        backgroundImage,
+        backgroundMode,
+        shortcutKey,
       });
     } catch (e) {
       console.error("Failed to save state:", e);
     }
   },
 
-  /** 按关键词搜索已安装应用，结果排除已固定的应用 */
   searchApps: async (query: string) => {
     try {
       const results = await invoke<AppItem[]>("search_apps", { query });
       const { pinnedApps } = get();
       const pinnedIds = new Set(pinnedApps.map((p) => p.id));
-      // 过滤掉已固定的应用
       set({
         searchResults: results.filter((app) => !pinnedIds.has(app.id)),
         searchQuery: query,
@@ -88,7 +137,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  /** 将应用添加到面板固定列表，自动计算网格位置 */
   addPinnedApp: (app: AppItem) => {
     const { pinnedApps, gridCols, layoutMode } = get();
     const order = pinnedApps.length;
@@ -99,10 +147,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       gridX = order % gridCols;
       gridY = Math.floor(order / gridCols);
     } else {
-      // 查找第一个空闲单元格
-      const occupied = new Set(
-        pinnedApps.map((p) => `${p.grid_x},${p.grid_y}`)
-      );
+      const occupied = new Set(pinnedApps.map((p) => `${p.grid_x},${p.grid_y}`));
       outer: for (let y = 0; y < get().gridRows; y++) {
         for (let x = 0; x < gridCols; x++) {
           if (!occupied.has(`${x},${y}`)) {
@@ -118,6 +163,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       id: app.id,
       name: app.name,
       path: app.path,
+      icon_data: app.icon_data,
       grid_x: gridX,
       grid_y: gridY,
       order,
@@ -127,17 +173,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveState();
   },
 
-  /** 从面板移除已固定的应用，并重新排列剩余应用的顺序 */
   removePinnedApp: (id: string) => {
-    const { pinnedApps } = get();
+    const { pinnedApps, gridCols, layoutMode } = get();
     const filtered = pinnedApps.filter((p) => p.id !== id);
-    // 重新排序
-    const reordered = filtered.map((p, i) => ({ ...p, order: i }));
+    let reordered: PinnedApp[];
+    if (layoutMode === "sequential") {
+      reordered = filtered.map((p, i) => ({
+        ...p,
+        grid_x: i % gridCols,
+        grid_y: Math.floor(i / gridCols),
+        order: i,
+      }));
+    } else {
+      reordered = filtered;
+    }
     set({ pinnedApps: reordered });
     get().saveState();
   },
 
-  /** 将应用移动到指定网格坐标（自由拼贴模式） */
   movePinnedApp: (id: string, gridX: number, gridY: number) => {
     const { pinnedApps } = get();
     const updated = pinnedApps.map((p) =>
@@ -147,17 +200,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveState();
   },
 
-  /** 批量更新固定应用列表（拖拽排序后） */
   reorderPinnedApps: (apps: PinnedApp[]) => {
     set({ pinnedApps: apps });
     get().saveState();
   },
 
-  /** 切换布局模式，切换到顺序模式时自动重新分配网格坐标 */
   setLayoutMode: (mode: LayoutMode) => {
     const { pinnedApps, gridCols } = get();
     if (mode === "sequential") {
-      // 根据顺序重新分配网格坐标
       const updated = pinnedApps.map((p, i) => ({
         ...p,
         grid_x: i % gridCols,
@@ -171,30 +221,99 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveState();
   },
 
-  /** 切换编辑模式（显示/隐藏拖拽手柄和删除按钮） */
   toggleEditMode: () => set((s) => ({ editMode: !s.editMode })),
 
-  /** 打开/关闭搜索模态框，打开时清空搜索状态并加载全部应用 */
   setSearchOpen: (open: boolean) => {
     set({ searchOpen: open, searchQuery: "", searchResults: [] });
-    if (open) {
-      // 打开搜索时加载全部应用
-      get().searchApps("");
-    }
   },
 
-  /** 更新搜索关键词并触发搜索 */
+  setSettingsOpen: (open: boolean) => set({ settingsOpen: open }),
+  setAboutOpen: (open: boolean) => set({ aboutOpen: open }),
+  setUpdateOpen: (open: boolean) => set({ updateOpen: open }),
+
   setSearchQuery: (query: string) => {
     set({ searchQuery: query });
     get().searchApps(query);
   },
 
-  /** 通过后端启动指定路径的应用 */
+  setGridSize: (cols: number, rows: number) => {
+    set({ gridCols: cols, gridRows: rows });
+  },
+
+  setWindowSize: async (width: number, height: number) => {
+    try {
+      await invoke("set_window_size", { width, height });
+      set({ windowWidth: width, windowHeight: height });
+    } catch (e) {
+      console.error("Failed to set window size:", e);
+    }
+  },
+
+  setOpacity: (opacity: number) => {
+    set({ opacity });
+    get().saveState();
+  },
+
+  setBackgroundImage: (img: string | null) => {
+    set({ backgroundImage: img });
+    get().saveState();
+  },
+
+  setBackgroundMode: (mode: BackgroundMode) => {
+    set({ backgroundMode: mode });
+    get().saveState();
+  },
+
+  pickBackgroundImage: async () => {
+    try {
+      const result = await invoke<string | null>("pick_background_image");
+      if (result) {
+        set({ backgroundImage: result });
+        get().saveState();
+      }
+    } catch (e) {
+      console.error("Failed to pick background image:", e);
+    }
+  },
+
+  fetchAppInfo: async () => {
+    try {
+      const info = await invoke<AppInfo>("get_app_info");
+      set({ appInfo: info });
+    } catch (e) {
+      console.error("Failed to get app info:", e);
+    }
+  },
+
+  checkUpdate: async () => {
+    try {
+      const info = await invoke<UpdateInfo>("check_update");
+      set({ updateInfo: info, updateOpen: true });
+    } catch (e) {
+      console.error("Failed to check update:", e);
+    }
+  },
+
   launchApp: async (path: string) => {
     try {
       await invoke("launch_app", { path });
     } catch (e) {
       console.error("Failed to launch app:", e);
+    }
+  },
+
+  /** 设置快捷键（本地状态，不立即保存） */
+  setShortcutKey: (key: string) => {
+    set({ shortcutKey: key });
+  },
+
+  /** 保存快捷键配置到后端并重新注册全局快捷键 */
+  saveShortcutKey: async (key: string) => {
+    try {
+      await invoke("update_shortcut", { shortcutKey: key });
+      set({ shortcutKey: key });
+    } catch (e) {
+      console.error("Failed to update shortcut:", e);
     }
   },
 }));

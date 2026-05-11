@@ -6,8 +6,8 @@ export interface AppItem {
   name: string;
   /** 应用可执行文件路径 */
   path: string;
-  /** 应用图标路径，无图标时为 null */
-  icon_path: string | null;
+  /** 应用图标 base64 data URI，无图标时为 null */
+  icon_data: string | null;
 }
 
 /** 用户固定到面板的应用信息 */
@@ -18,6 +18,8 @@ export interface PinnedApp {
   name: string;
   /** 应用可执行文件路径 */
   path: string;
+  /** 应用图标 base64 data URI */
+  icon_data: string | null;
   /** 网格列坐标 */
   grid_x: number;
   /** 网格行坐标 */
@@ -29,14 +31,44 @@ export interface PinnedApp {
 /** 布局模式：sequential（顺序填充）或 free-tile（自由拼贴） */
 export type LayoutMode = "sequential" | "free-tile";
 
-/** 应用持久化状态，保存到本地 JSON 文件 */
+/** 背景图填充模式 */
+export type BackgroundMode = "stretch" | "tile" | "center";
+
+/** 应用持久化状态 */
 export interface AppState {
   /** 已固定的应用列表 */
   pinned_apps: PinnedApp[];
   /** 当前布局模式 */
   layout_mode: LayoutMode;
-  /** 网格列数 */
-  grid_cols: number;
-  /** 网格行数 */
-  grid_rows: number;
+  /** 面板透明度（0-1） */
+  opacity: number;
+  /** 背景图 base64 data URI */
+  background_image: string | null;
+  /** 背景图填充模式 */
+  background_mode: BackgroundMode;
+  /** 全局快捷键（如 "ctrl+space"） */
+  shortcut_key: string;
+}
+
+/** 应用信息（关于对话框） */
+export interface AppInfo {
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  website: string;
+  email: string;
+  license: string;
+}
+
+/** 更新检查结果 */
+export interface UpdateInfo {
+  /** 是否有可用更新 */
+  has_update: boolean;
+  /** 当前版本号 */
+  current_version: string;
+  /** 最新版本号 */
+  latest_version: string;
+  /** 更新提示信息 */
+  message: string;
 }
