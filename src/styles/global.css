@@ -1,0 +1,63 @@
+:root {
+  --panel-bg: rgba(30, 30, 30, 0.92);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --cell-bg: rgba(255, 255, 255, 0.04);
+  --cell-hover: rgba(255, 255, 255, 0.08);
+  --cell-active: rgba(255, 255, 255, 0.12);
+  --cell-edit: rgba(255, 200, 50, 0.08);
+  --cell-edit-border: rgba(255, 200, 50, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --accent: #f0c040;
+  --accent-hover: #f5d060;
+  --danger: #e05050;
+  --danger-hover: #f06060;
+  --toolbar-bg: rgba(255, 255, 255, 0.03);
+  --search-bg: rgba(40, 40, 40, 0.95);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --cell-size: 88px;
+  --gap: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: transparent;
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
