@@ -54,6 +54,7 @@ pub struct PinnedApp {
 
 /// 应用全局状态，保存在 `%APPDATA%/ChocoPanel/state.json`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppState {
     pub pinned_apps: Vec<PinnedApp>,
     pub layout_mode: LayoutMode,

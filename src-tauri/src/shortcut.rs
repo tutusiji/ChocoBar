@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use std::time::Instant;
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// 记录上次按键时间，用于双击检测
@@ -166,12 +166,13 @@ pub fn re_register_shortcut(app: &AppHandle, shortcut_key: &str) -> Result<(), B
                     *last_press = None;
                     drop(last_press);
 
-                    if let Some(window) = handle.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
-                            window.hide().ok();
+                    let window: Option<tauri::WebviewWindow> = handle.get_webview_window("main");
+                    if let Some(w) = window {
+                        if w.is_visible().unwrap_or(false) {
+                            w.hide().ok();
                         } else {
-                            window.show().ok();
-                            window.set_focus().ok();
+                            w.show().ok();
+                            w.set_focus().ok();
                         }
                     }
                     return;
