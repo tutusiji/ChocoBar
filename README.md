@@ -1,81 +1,99 @@
 # ChocoPanel
 
-A lightweight Windows quick-launch panel built with Tauri (Rust + React). Double-tap `Alt` to instantly access your favorite applications.
+一个基于 Tauri v2 的轻量级 Windows 快速启动面板。双击 `Ctrl` 键即可在屏幕最顶层显示浮动面板，快速访问常用应用。
 
-## Features
+[English](./README_EN.md)
 
-- **Quick Toggle**: Double-tap `Alt` key to show/hide the panel
-- **System Tray**: Runs in the background with a tray icon
-- **App Discovery**: Automatically scans installed Windows applications
-- **Search**: Quickly find and pin applications
-- **Grid Layout**: Two layout modes - Sequential and Free Tile
-- **Edit Mode**: Drag-and-drop to arrange your apps
-- **Desktop Drop**: Drag app shortcuts from desktop into the panel (edit mode only)
-- **Persistence**: Your pinned apps and layout are saved between sessions
+## 功能特性
 
-## Tech Stack
+- **快速切换**: 双击快捷键（默认 `Ctrl+Space`）显示/隐藏面板
+- **系统托盘**: 后台运行，托盘图标支持右键菜单（设置、关于、检查更新、退出）
+- **应用发现**: 自动扫描 Windows 注册表和开始菜单中已安装的应用
+- **搜索添加**: 按关键词搜索应用并固定到面板
+- **网格布局**: 两种布局模式 —— 顺序填充和自由拼贴
+- **编辑模式**: 拖拽排列应用图标，拖拽窗口边缘调整大小（发光边框提示）
+- **桌面拖放**: 从桌面拖入 `.exe` / `.lnk` 文件直接添加应用（仅编辑模式）
+- **自定义设置**: 窗口尺寸、透明度滑块（实时预览）、背景图片上传及填充模式
+- **自定义快捷键**: 在设置中录制键盘组合作为面板切换快捷键
+- **持久化存储**: 固定应用、布局模式、透明度等设置自动保存
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Tauri v2 |
-| Backend | Rust |
-| Frontend | React 18 + TypeScript |
-| Bundler | Vite |
-| State | Zustand |
-| Drag & Drop | @dnd-kit |
-| Icons | Lucide React |
+## 技术栈
 
-## Getting Started
+| 层级 | 技术 |
+|------|------|
+| 框架 | Tauri v2 |
+| 后端 | Rust (edition 2021) |
+| 前端 | React 18 + TypeScript |
+| 构建工具 | Vite 6 |
+| 状态管理 | Zustand 5 |
+| 拖拽 | 原生 HTML5 Drag API |
+| 图标 | Lucide React |
 
-### Prerequisites
+## 快速开始
+
+### 环境要求
 
 - Windows 10/11
 - [Node.js](https://nodejs.org/) v18+
-- [Rust](https://www.rust-lang.org/tools/install) (stable)
-- [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
+- [Rust](https://www.rust-lang.org/tools/install)（stable）
+- [Tauri 依赖](https://v2.tauri.app/start/prerequisites/)
 
-### Install
+### 安装与运行
 
 ```bash
-# Install frontend dependencies
+# 安装前端依赖
 npm install
 
-# Run in development mode
+# 启动开发模式（带热重载）
 npm run tauri dev
 
-# Build for production
+# 生产构建
 npm run tauri build
 ```
 
-### Usage
+### 使用方法
 
-1. Launch ChocoPanel - a tray icon appears in the system tray
-2. Double-tap `Alt` or click the tray icon to show the panel
-3. Click `+` to search and add applications
-4. Toggle edit mode to rearrange apps via drag-and-drop
-5. Press `Esc` or click the close button to hide the panel
-6. Right-click the tray icon to exit completely
+1. 启动 ChocoPanel，系统托盘出现图标
+2. 双击 `Ctrl`（或自定义快捷键）显示面板
+3. 点击「Add」按钮搜索并添加应用
+4. 点击「Edit」进入编辑模式，可拖拽排列图标、拖拽窗口边缘调整大小
+5. 按 `Esc` 或点击关闭按钮隐藏面板
+6. 右键托盘图标可打开设置、关于、检查更新或退出
 
-## Project Structure
+## 项目结构
 
 ```
 ChocoPanel/
-├── src/                    # React frontend
-│   ├── components/         # UI components
-│   ├── store/              # Zustand state management
-│   ├── styles/             # CSS styles
-│   ├── types/              # TypeScript types
-│   └── utils/              # Utility functions
-├── src-tauri/              # Rust backend
+├── src/                        # React 前端
+│   ├── components/             # UI 组件
+│   │   ├── Panel.tsx           # 面板主组件
+│   │   ├── Toolbar.tsx         # 顶部工具栏
+│   │   ├── AppGrid.tsx         # 网格布局（含拖拽、自动计算行列）
+│   │   ├── AppIcon.tsx         # 单个应用图标
+│   │   ├── SearchModal.tsx     # 搜索模态框
+│   │   ├── SettingsModal.tsx   # 设置面板
+│   │   ├── AboutModal.tsx      # 关于对话框
+│   │   └── UpdateModal.tsx     # 更新检查对话框
+│   ├── store/
+│   │   └── useAppStore.ts      # Zustand 状态管理
+│   ├── styles/                 # CSS 样式
+│   ├── types/
+│   │   └── index.ts            # TypeScript 类型定义
+│   └── utils/
+│       └── grid.ts             # 网格计算工具函数
+├── src-tauri/                  # Rust 后端
 │   └── src/
-│       ├── app_scanner.rs  # Windows app discovery
-│       ├── commands.rs     # IPC commands
-│       ├── tray.rs         # System tray
-│       ├── shortcut.rs     # Global shortcut (double-tap Alt)
-│       └── state.rs        # State persistence
-└── docs/                   # Documentation
+│       ├── main.rs             # 入口点
+│       ├── lib.rs              # Tauri 应用构建器
+│       ├── app_scanner.rs      # Windows 应用扫描
+│       ├── commands.rs         # IPC 命令处理器
+│       ├── shortcut.rs         # 全局快捷键（双击检测）
+│       ├── state.rs            # 状态持久化
+│       ├── tray.rs             # 系统托盘
+│       └── icon_extractor.rs   # 应用图标提取
+└── docs/                       # 文档
 ```
 
-## License
+## 许可证
 
 MIT

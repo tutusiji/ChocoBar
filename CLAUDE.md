@@ -2,21 +2,76 @@
 
 ## 项目概述
 
-ChocoPanel 是一个基于 Tauri v2 的 Windows 快速启动面板应用。双击 `Alt` 键即可显示/隐藏浮动面板，快速访问常用应用。
+ChocoPanel 是一个基于 Tauri v2 的 Windows 快速启动面板应用。双击快捷键（默认 `Ctrl+Space`）即可显示/隐藏浮动面板，快速访问常用应用。
 
 - **后端**: Rust (edition 2021)
 - **前端**: React 18 + TypeScript + Vite 6
 - **状态管理**: Zustand 5
-- **拖拽**: @dnd-kit/core + @dnd-kit/sortable
+- **拖拽**: 原生 HTML5 Drag API
+- **图标**: Lucide React
+
+## 语言规范（重要）
+
+### 必须使用中文的场景
+
+- 所有对话回复和输出
+- 代码修改的说明和总结
+- 文档（README、CLAUDE.md、技能文件等）
+- 代码注释（函数注释、行内注释）
+- Git 提交信息
+- 错误信息和日志输出的描述
+
+### 保持英文的场景
+
+- 代码标识符（变量名、函数名、类型名等）
+- 技术术语（如 API 名称、crate 名称等）
+- 配置文件中的键名
+
+## 代码注释规范（自动执行）
+
+**编辑代码时，必须自动为新增或修改的函数添加中文注释。** 这是强制要求，每次编辑代码都应遵守。
+
+### TypeScript / React 函数注释
+
+使用 JSDoc 格式：
+
+```typescript
+/**
+ * 从后端加载持久化状态（固定应用、布局模式、透明度等）
+ * 加载完成后更新 Zustand store 中的对应字段
+ */
+loadState: async () => {
+  // ...
+}
+```
+
+### Rust 函数注释
+
+使用 `///` 文档注释（公共函数）或 `//` 行内注释（内部函数）：
+
+```rust
+/// 解析快捷键字符串为 Modifiers + Code
+///
+/// 支持格式: "ctrl+space", "alt+space", "ctrl+shift+q" 等
+fn parse_shortcut(key_str: &str) -> Option<(Modifiers, Code)> {
+    // ...
+}
+```
+
+### 注释内容要求
+
+1. **函数用途**：说明函数做什么，为什么需要它
+2. **参数说明**：每个参数的含义和预期值（公共函数必须，内部函数可选）
+3. **返回值**：返回什么，什么情况下返回特殊值（公共函数必须）
+4. **注意事项**：使用限制、边界条件、异常情况（如有）
+
+### 不需要注释的情况
+
+- 简单的 getter/setter（如 `setOpen: (open) => set({ open })`）
+- 纯粹的类型定义
+- CSS 变量定义
 
 ## 代码规范
-
-### 通用要求
-
-- 所有函数必须有中文注释，说明函数的用途、参数含义和返回值
-- 注释应简洁明了，描述"做什么"和"为什么"，而非"怎么做"
-- 公共函数使用 JSDoc（前端）或 doc comments（Rust）格式
-- 内部函数使用行内注释即可
 
 ### TypeScript / React
 
@@ -86,13 +141,6 @@ feat(frontend): 添加搜索模态框组件
 Closes #12
 ```
 
-## 文档语言
-
-- 所有文档（包括 CLAUDE.md、README、技能文件等）使用中文
-- 代码注释使用中文
-- Git 提交信息使用中文
-- 代码中的标识符（变量名、函数名等）使用英文
-
 ## 开发命令
 
 ```bash
@@ -115,9 +163,14 @@ npm run tauri build
 ChocoPanel/
 ├── src/                        # React 前端
 │   ├── components/             # UI 组件
-│   │   ├── AppGrid.tsx         # 网格布局（含拖拽上下文）
-│   │   ├── AppIcon.tsx         # 单个应用图标（可拖拽）
-│   │   └── Toolbar.tsx         # 顶部工具栏
+│   │   ├── Panel.tsx           # 面板主组件
+│   │   ├── Toolbar.tsx         # 顶部工具栏
+│   │   ├── AppGrid.tsx         # 网格布局（含拖拽、自动计算行列）
+│   │   ├── AppIcon.tsx         # 单个应用图标
+│   │   ├── SearchModal.tsx     # 搜索模态框
+│   │   ├── SettingsModal.tsx   # 设置面板
+│   │   ├── AboutModal.tsx      # 关于对话框
+│   │   └── UpdateModal.tsx     # 更新检查对话框
 │   ├── store/
 │   │   └── useAppStore.ts      # Zustand 状态管理
 │   ├── styles/                 # CSS 样式
@@ -129,11 +182,12 @@ ChocoPanel/
 │   └── src/
 │       ├── main.rs             # 入口点
 │       ├── lib.rs              # Tauri 应用构建器
-│       ├── app_scanner.rs      # Windows 应用发现
+│       ├── app_scanner.rs      # Windows 应用扫描
 │       ├── commands.rs         # IPC 命令处理器
-│       ├── shortcut.rs         # 全局快捷键（双击 Alt）
+│       ├── shortcut.rs         # 全局快捷键（双击检测）
 │       ├── state.rs            # 状态持久化
-│       └── tray.rs             # 系统托盘
+│       ├── tray.rs             # 系统托盘
+│       └── icon_extractor.rs   # 应用图标提取
 └── docs/                       # 文档
 ```
 
@@ -141,5 +195,8 @@ ChocoPanel/
 
 - 窗口配置为无边框、透明背景、始终置顶、不在任务栏显示
 - 应用状态保存在 `%APPDATA%/ChocoPanel/state.json`
-- 双击检测阈值为 400ms，最小间隔 50ms（防抖）
+- 双击检测阈值为 500ms，最小间隔 50ms（防抖）
 - 布局模式：顺序模式（自动填充）和自由拼贴模式（指定坐标）
+- 网格列数和行数根据面板宽高自动计算（单元格 88px + 间距 6px）
+- 编辑模式下窗口可拖拽调整大小，退出时自动保存尺寸
+- 快捷键支持动态修改，格式如 "ctrl+space"、"alt+q" 等

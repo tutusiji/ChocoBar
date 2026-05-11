@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(powershell *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(git push *)"
     ]
   }
 }

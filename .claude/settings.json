@@ -9,7 +9,10 @@
       "Bash(npm run*)",
       "Bash(npx tsc*)",
       "Bash(cd src-tauri && cargo check)",
-      "Bash(cd src-tauri && cargo build*)"
+      "Bash(cd src-tauri && cargo build*)",
+      "Bash(cd /d/CodeLab/ChocoPanel/src-tauri && cargo check)",
+      "Bash(cd /d/CodeLab/ChocoPanel/src-tauri && cargo build*)",
+      "Bash(cd /d/CodeLab/ChocoPanel && npx tsc*)"
     ],
     "deny": []
   }

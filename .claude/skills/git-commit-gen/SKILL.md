@@ -1,7 +1,7 @@
 ---
-name: commit-gen
-description: 生成符合项目规范的 Git 提交信息
-user_invocable: true
+name: git-commit-gen
+description: 生成符合项目规范的 Git 提交信息（中文）
+user-invocable: true
 ---
 
 生成符合项目规范的 Git 提交信息。
@@ -55,14 +55,14 @@ user_invocable: true
 
 ### subject（必填）
 
-- 使用中文
+- **必须使用中文**
 - 简洁描述变更内容
 - 不超过 50 个字符
 - 不以句号结尾
 
 ### body（可选）
 
-- 使用中文
+- **必须使用中文**
 - 详细说明变更的动机和内容
 - 使用列表格式（`-` 开头）
 - 说明"做了什么"和"为什么"
@@ -87,7 +87,7 @@ Closes #12
 ```
 fix(shortcut): 修复双击 Alt 误触问题
 
-- 将双击检测阈值从 300ms 调整为 400ms
+- 将双击检测阈值从 300ms 调整为 500ms
 - 增加 50ms 最小间隔防抖机制
 ```
 
@@ -106,7 +106,7 @@ refactor(backend): 优化应用扫描性能
 3. 分析所有变更文件，识别涉及的模块
 4. 根据变更类型选择合适的 type
 5. 根据涉及模块选择合适的 scope
-6. 生成简洁的 subject
-7. 如果变更较多，生成详细的 body
+6. 生成简洁的 subject（中文）
+7. 如果变更较多，生成详细的 body（中文）
 8. 输出完整的提交信息供用户确认
 9. 用户确认后执行 `git commit`
