@@ -9,11 +9,11 @@ use tauri::{
 ///
 /// 包含右键菜单（显示面板、设置、关于、检查更新、退出）和左键点击切换面板
 pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
-    let show_item = MenuItemBuilder::with_id("show", "Show Panel").build(app)?;
-    let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
-    let about_item = MenuItemBuilder::with_id("about", "About").build(app)?;
-    let update_item = MenuItemBuilder::with_id("update", "Check for Updates").build(app)?;
-    let exit_item = MenuItemBuilder::with_id("exit", "Exit").build(app)?;
+    let show_item = MenuItemBuilder::with_id("show", "显示面板").build(app)?;
+    let settings_item = MenuItemBuilder::with_id("settings", "设置").build(app)?;
+    let about_item = MenuItemBuilder::with_id("about", "关于").build(app)?;
+    let update_item = MenuItemBuilder::with_id("update", "检查更新").build(app)?;
+    let exit_item = MenuItemBuilder::with_id("exit", "退出").build(app)?;
 
     let menu = MenuBuilder::new(app)
         .item(&show_item)
@@ -28,10 +28,10 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let _tray = TrayIconBuilder::new()
         .icon(Image::from_path("icons/icon.png").unwrap_or_else(|_| {
             Image::from_bytes(include_bytes!("../icons/icon.png"))
-                .expect("Failed to load tray icon")
+                .expect("加载托盘图标失败")
         }))
         .menu(&menu)
-        .tooltip("ChocoPanel - Double Ctrl+Space to show")
+        .tooltip("ChocoPanel - 按 Ctrl+Space 显示面板")
         .on_menu_event(move |app, event| {
             match event.id().as_ref() {
                 "show" => {
@@ -41,7 +41,6 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 "settings" => {
-                    // 先显示面板，再发送事件打开设置
                     if let Some(window) = app.get_webview_window("main") {
                         window.show().ok();
                         window.set_focus().ok();
@@ -79,6 +78,7 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(window) = app.get_webview_window("main") {
                     if window.is_visible().unwrap_or(false) {
                         window.hide().ok();
+                        app.emit("panel-hidden", ()).ok();
                     } else {
                         window.show().ok();
                         window.set_focus().ok();

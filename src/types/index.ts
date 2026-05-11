@@ -20,10 +20,14 @@ export interface PinnedApp {
   path: string;
   /** 应用图标 base64 data URI */
   icon_data: string | null;
-  /** 网格列坐标 */
+  /** 顺序模式下的网格列坐标 */
   grid_x: number;
-  /** 网格行坐标 */
+  /** 顺序模式下的网格行坐标 */
   grid_y: number;
+  /** 自由磁贴模式下的列坐标 */
+  tile_x: number;
+  /** 自由磁贴模式下的行坐标 */
+  tile_y: number;
   /** 顺序模式下的排列顺序 */
   order: number;
 }

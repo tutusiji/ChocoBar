@@ -96,6 +96,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 10px;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .grid {
@@ -116,6 +118,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-app-region: no-drag;
 }
 
 .grid-cell.edit-mode {
@@ -142,14 +145,24 @@
   cursor: pointer;
   transition: background 0.12s ease;
   position: relative;
+  -webkit-app-region: no-drag;
 }
 
 .app-icon:hover {
   background: var(--cell-hover);
 }
 
-.app-icon.dragging {
-  opacity: 0.4;
+.app-icon.draggable {
+  cursor: grab;
+}
+
+.grid-container.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.grid-container.dragging .app-icon {
+  pointer-events: none;
 }
 
 .app-icon .icon-wrapper {
@@ -218,6 +231,43 @@
 
 .app-icon .delete-btn:hover {
   background: var(--danger-hover);
+}
+
+/* Drag preview */
+.drag-preview {
+  position: fixed;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-preview-inner {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.9);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.drag-preview-inner img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.drag-preview-inner span {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* Drag handle */
@@ -342,6 +392,19 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--accent);
+}
+
+.search-item .si-icon .si-icon-loading {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--cell-bg);
+  animation: icon-loading-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes icon-loading-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
 }
 
 .search-item .si-info {

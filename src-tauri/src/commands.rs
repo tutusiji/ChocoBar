@@ -4,18 +4,26 @@ use crate::shortcut;
 use crate::state::{AppState, BackgroundMode, LayoutMode, PinnedApp};
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
-/// IPC 命令：获取系统中所有已安装的应用列表
-#[tauri::command]
-pub fn get_installed_apps() -> Vec<AppItem> {
-    app_scanner::scan_all_apps()
-}
-
-/// IPC 命令：按关键词搜索已安装应用
+/// IPC 命令：按关键词搜索已安装应用（使用缓存，速度极快）
 #[tauri::command]
 pub fn search_apps(query: String) -> Vec<AppItem> {
     app_scanner::search_apps(&query)
+}
+
+/// IPC 命令：获取单个应用的图标（延迟加载）
+///
+/// 搜索时不提取图标以保证速度，需要显示时通过此命令单独获取
+#[tauri::command]
+pub fn get_app_icon(path: String) -> Option<String> {
+    app_scanner::get_app_icon(&path)
+}
+
+/// IPC 命令：清除应用缓存（强制下次搜索时重新扫描）
+#[tauri::command]
+pub fn clear_app_cache() {
+    app_scanner::clear_cache();
 }
 
 /// IPC 命令：从文件路径解析应用信息
@@ -211,6 +219,7 @@ pub fn toggle_panel(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
             window.hide().ok();
+            app.emit("panel-hidden", ()).ok();
         } else {
             window.show().ok();
             window.set_focus().ok();
@@ -256,4 +265,18 @@ pub fn update_shortcut(shortcut_key: String, app: AppHandle, state: State<'_, Mu
     }
     shortcut::re_register_shortcut(&app, &shortcut_key)
         .map_err(|e| format!("Failed to register shortcut: {}", e))
+}
+
+/// IPC 命令：临时禁用全局快捷键（快捷键录制时使用）
+#[tauri::command]
+pub fn disable_shortcut(app: AppHandle) -> Result<(), String> {
+    shortcut::disable_shortcut(&app)
+        .map_err(|e| format!("Failed to disable shortcut: {}", e))
+}
+
+/// IPC 命令：重新启用全局快捷键
+#[tauri::command]
+pub fn enable_shortcut(app: AppHandle) -> Result<(), String> {
+    shortcut::enable_shortcut(&app)
+        .map_err(|e| format!("Failed to enable shortcut: {}", e))
 }

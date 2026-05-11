@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
 import type { BackgroundMode } from "../types";
 
@@ -69,6 +70,10 @@ export function SettingsModal() {
       const combo = parts.join("+");
       setLocalShortcut(combo);
       setRecording(false);
+      // 录制完成后重新启用全局快捷键
+      invoke("enable_shortcut").catch((e) =>
+        console.error("启用快捷键失败:", e)
+      );
     },
     [recording]
   );
@@ -81,7 +86,7 @@ export function SettingsModal() {
     }
   }, [recording, handleShortcutKeyDown]);
 
-  // 失焦时停止录制
+  // 失焦时停止录制并重新启用全局快捷键
   useEffect(() => {
     if (!recording) return;
     const handleClick = (e: MouseEvent) => {
@@ -90,6 +95,9 @@ export function SettingsModal() {
         !shortcutRef.current.contains(e.target as Node)
       ) {
         setRecording(false);
+        invoke("enable_shortcut").catch((e) =>
+          console.error("启用快捷键失败:", e)
+        );
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -104,6 +112,11 @@ export function SettingsModal() {
     setOpacity(localOpacity);
     if (localShortcut !== shortcutKey) {
       saveShortcutKey(localShortcut);
+    } else {
+      // 快捷键未变更，确保重新启用
+      invoke("enable_shortcut").catch((e) =>
+        console.error("启用快捷键失败:", e)
+      );
     }
     setSettingsOpen(false);
   };
@@ -122,6 +135,13 @@ export function SettingsModal() {
       .join(" + ");
   };
 
+  // 背景图填充模式中文名
+  const modeLabels: Record<BackgroundMode, string> = {
+    stretch: "拉伸",
+    tile: "平铺",
+    center: "居中",
+  };
+
   return (
     <div
       className="search-overlay"
@@ -134,12 +154,12 @@ export function SettingsModal() {
         className="settings-modal"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="settings-title">Settings</div>
+        <div className="settings-title">设置</div>
 
         <div className="settings-section">
-          <div className="settings-section-title">Window</div>
+          <div className="settings-section-title">窗口</div>
           <div className="settings-row">
-            <label>Width</label>
+            <label>宽度</label>
             <input
               type="number"
               min={600}
@@ -150,7 +170,7 @@ export function SettingsModal() {
             <label className="settings-unit">px</label>
           </div>
           <div className="settings-row">
-            <label>Height</label>
+            <label>高度</label>
             <input
               type="number"
               min={400}
@@ -163,32 +183,43 @@ export function SettingsModal() {
         </div>
 
         <div className="settings-section">
-          <div className="settings-section-title">Shortcut Key</div>
+          <div className="settings-section-title">快捷键</div>
           <div className="settings-row">
-            <label>Toggle</label>
+            <label>切换</label>
             <div
               ref={shortcutRef}
               className={`shortcut-input ${recording ? "recording" : ""}`}
-              onClick={() => setRecording(true)}
+              onClick={() => {
+                setRecording(true);
+                // 录制时临时禁用全局快捷键，避免冲突
+                invoke("disable_shortcut").catch((e) =>
+                  console.error("禁用快捷键失败:", e)
+                );
+              }}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setRecording(true);
+                if (e.key === "Enter") {
+                  setRecording(true);
+                  invoke("disable_shortcut").catch((e) =>
+                    console.error("禁用快捷键失败:", e)
+                  );
+                }
               }}
             >
               {recording
-                ? "Press keys..."
+                ? "请按下快捷键..."
                 : formatShortcut(localShortcut)}
             </div>
           </div>
           <div className="settings-hint">
-            Double-tap this key combination to show/hide the panel
+            按下此快捷键显示/隐藏面板
           </div>
         </div>
 
         <div className="settings-section">
-          <div className="settings-section-title">Appearance</div>
+          <div className="settings-section-title">外观</div>
           <div className="settings-row">
-            <label>Opacity</label>
+            <label>透明度</label>
             <input
               type="range"
               min={0}
@@ -201,23 +232,23 @@ export function SettingsModal() {
           </div>
 
           <div className="settings-row">
-            <label>Background</label>
+            <label>背景图</label>
             <button className="btn" onClick={pickBackgroundImage}>
-              {backgroundImage ? "Change Image" : "Upload Image"}
+              {backgroundImage ? "更换图片" : "上传图片"}
             </button>
             {backgroundImage && (
               <button
                 className="btn"
                 onClick={() => setBackgroundImage(null)}
               >
-                Remove
+                移除
               </button>
             )}
           </div>
 
           {backgroundImage && (
             <div className="settings-row">
-              <label>Fill Mode</label>
+              <label>填充</label>
               <div className="settings-btn-group">
                 {(["stretch", "tile", "center"] as BackgroundMode[]).map(
                   (mode) => (
@@ -226,7 +257,7 @@ export function SettingsModal() {
                       className={`btn ${backgroundMode === mode ? "active" : ""}`}
                       onClick={() => setBackgroundMode(mode)}
                     >
-                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      {modeLabels[mode]}
                     </button>
                   )
                 )}
@@ -237,10 +268,10 @@ export function SettingsModal() {
 
         <div className="settings-footer">
           <button className="btn" onClick={() => setSettingsOpen(false)}>
-            Cancel
+            取消
           </button>
           <button className="btn active" onClick={handleSave}>
-            Save
+            保存
           </button>
         </div>
       </div>

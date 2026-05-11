@@ -14,9 +14,9 @@ pub enum LayoutMode {
 }
 
 impl Default for LayoutMode {
-    /// 默认使用顺序填充模式
+    /// 默认使用自由拼贴模式
     fn default() -> Self {
-        Self::Sequential
+        Self::FreeTile
     }
 }
 
@@ -47,8 +47,17 @@ pub struct PinnedApp {
     pub name: String,
     pub path: String,
     pub icon_data: Option<String>,
+    /// 顺序模式下的网格列坐标
     pub grid_x: u32,
+    /// 顺序模式下的网格行坐标
     pub grid_y: u32,
+    /// 自由磁贴模式下的列坐标
+    #[serde(default)]
+    pub tile_x: u32,
+    /// 自由磁贴模式下的行坐标
+    #[serde(default)]
+    pub tile_y: u32,
+    /// 顺序模式下的排列顺序
     pub order: u32,
 }
 
@@ -65,7 +74,7 @@ pub struct AppState {
 }
 
 impl Default for AppState {
-    /// 默认状态：无固定应用、顺序模式、85% 透明度
+    /// 默认状态：无固定应用、自由拼贴模式、85% 透明度
     fn default() -> Self {
         Self {
             pinned_apps: Vec::new(),

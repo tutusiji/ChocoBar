@@ -2,6 +2,7 @@ use crate::icon_extractor;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::path::Path;
+use std::sync::Mutex;
 use winreg::enums::*;
 use winreg::RegKey;
 
@@ -13,6 +14,9 @@ pub struct AppItem {
     pub path: String,
     pub icon_data: Option<String>,
 }
+
+/// 全局应用缓存，避免每次搜索都重新扫描系统
+static APP_CACHE: Mutex<Option<Vec<AppItem>>> = Mutex::new(None);
 
 /// 对文件路径进行 SHA-256 哈希，生成唯一标识
 fn hash_path(path: &str) -> String {
@@ -80,8 +84,8 @@ fn is_system_app(name: &str, path: &str) -> bool {
     false
 }
 
-/// 扫描指定注册表键下的已安装应用
-fn scan_registry_key(hive: &RegKey, subkey_path: &str) -> Vec<AppItem> {
+/// 扫描指定注册表键下的已安装应用（不提取图标，用于快速搜索）
+fn scan_registry_key_fast(hive: &RegKey, subkey_path: &str) -> Vec<AppItem> {
     let mut apps = Vec::new();
 
     if let Ok(key) = hive.open_subkey_with_flags(subkey_path, KEY_READ) {
@@ -103,20 +107,12 @@ fn scan_registry_key(hive: &RegKey, subkey_path: &str) -> Vec<AppItem> {
                 }
 
                 let id = hash_path(&exe_path);
-                let icon_path = if !display_icon.is_empty() {
-                    Some(display_icon.clone())
-                } else {
-                    None
-                };
-
-                // 提取应用图标
-                let icon_data = icon_extractor::extract_icon(icon_path.as_deref(), &exe_path);
 
                 apps.push(AppItem {
                     id,
                     name: display_name,
                     path: exe_path,
-                    icon_data,
+                    icon_data: None, // 搜索时不提取图标，提高速度
                 });
             }
         }
@@ -160,8 +156,8 @@ fn find_exe_from_location(install_location: &str, display_icon: &str, key: &RegK
     String::new()
 }
 
-/// 递归扫描开始菜单目录，收集 .lnk 快捷方式
-fn scan_start_menu(start_menu_path: &Path) -> Vec<AppItem> {
+/// 递归扫描开始菜单目录，收集 .lnk 快捷方式（不提取图标）
+fn scan_start_menu_fast(start_menu_path: &Path) -> Vec<AppItem> {
     let mut apps = Vec::new();
 
     if !start_menu_path.exists() {
@@ -173,7 +169,7 @@ fn scan_start_menu(start_menu_path: &Path) -> Vec<AppItem> {
             let path = entry.path();
 
             if path.is_dir() {
-                apps.extend(scan_start_menu(&path));
+                apps.extend(scan_start_menu_fast(&path));
                 continue;
             }
 
@@ -197,15 +193,11 @@ fn scan_start_menu(start_menu_path: &Path) -> Vec<AppItem> {
                 let path_str = path.to_string_lossy().to_string();
                 let id = hash_path(&path_str);
 
-                // 尝试从 .lnk 提取图标
-                let icon_data =
-                    icon_extractor::extract_icon(None, &path_str);
-
                 apps.push(AppItem {
                     id,
                     name,
                     path: path_str,
-                    icon_data,
+                    icon_data: None, // 搜索时不提取图标
                 });
             }
         }
@@ -214,14 +206,20 @@ fn scan_start_menu(start_menu_path: &Path) -> Vec<AppItem> {
     apps
 }
 
-/// 扫描系统中所有已安装的应用
-pub fn scan_all_apps() -> Vec<AppItem> {
+/// 扫描系统中所有已安装的应用（使用缓存）
+fn scan_all_apps_cached() -> Vec<AppItem> {
+    let mut cache = APP_CACHE.lock().unwrap();
+
+    if let Some(ref apps) = *cache {
+        return apps.clone();
+    }
+
     let mut apps = Vec::new();
     let mut seen_names = std::collections::HashSet::new();
 
     // 扫描 HKLM 注册表
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let hklm_apps = scan_registry_key(
+    let hklm_apps = scan_registry_key_fast(
         &hklm,
         "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
     );
@@ -233,7 +231,7 @@ pub fn scan_all_apps() -> Vec<AppItem> {
 
     // 扫描 HKCU 注册表
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let hkcu_apps = scan_registry_key(
+    let hkcu_apps = scan_registry_key_fast(
         &hkcu,
         "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
     );
@@ -247,7 +245,7 @@ pub fn scan_all_apps() -> Vec<AppItem> {
     let program_data =
         std::env::var("ProgramData").unwrap_or_else(|_| "C:\\ProgramData".to_string());
     let system_start_menu = Path::new(&program_data).join("Microsoft\\Windows\\Start Menu\\Programs");
-    let system_apps = scan_start_menu(&system_start_menu);
+    let system_apps = scan_start_menu_fast(&system_start_menu);
     for app in system_apps {
         if seen_names.insert(app.name.clone()) {
             apps.push(app);
@@ -257,7 +255,7 @@ pub fn scan_all_apps() -> Vec<AppItem> {
     // 扫描用户开始菜单
     if let Some(app_data) = dirs::data_dir() {
         let user_start_menu = app_data.join("Microsoft\\Windows\\Start Menu\\Programs");
-        let user_apps = scan_start_menu(&user_start_menu);
+        let user_apps = scan_start_menu_fast(&user_start_menu);
         for app in user_apps {
             if seen_names.insert(app.name.clone()) {
                 apps.push(app);
@@ -266,16 +264,20 @@ pub fn scan_all_apps() -> Vec<AppItem> {
     }
 
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    *cache = Some(apps.clone());
     apps
 }
 
-/// 按关键词搜索已安装应用
+/// 按关键词搜索已安装应用（使用缓存，速度极快）
+///
+/// 最多返回 50 个结果，避免内存溢出
 pub fn search_apps(query: &str) -> Vec<AppItem> {
-    let all_apps = scan_all_apps();
+    let all_apps = scan_all_apps_cached();
     let query_lower = query.to_lowercase();
 
     if query.is_empty() {
-        return all_apps;
+        return Vec::new(); // 空查询不返回任何结果
     }
 
     all_apps
@@ -284,5 +286,17 @@ pub fn search_apps(query: &str) -> Vec<AppItem> {
             app.name.to_lowercase().contains(&query_lower)
                 || app.path.to_lowercase().contains(&query_lower)
         })
+        .take(50) // 限制结果数量，避免内存溢出
         .collect()
+}
+
+/// 获取单个应用的图标数据（延迟加载，仅在需要时调用）
+pub fn get_app_icon(app_path: &str) -> Option<String> {
+    icon_extractor::extract_icon(None, app_path)
+}
+
+/// 清除应用缓存（用于强制刷新）
+pub fn clear_cache() {
+    let mut cache = APP_CACHE.lock().unwrap();
+    *cache = None;
 }

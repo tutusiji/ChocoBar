@@ -9,9 +9,18 @@ const CELL_SIZE = 88;
 const GAP = 6;
 const PADDING = 10;
 
+/** 拖拽状态 */
+interface DragInfo {
+  app: PinnedApp;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
 /**
  * 应用网格组件
- * 支持顺序模式和自由拼贴模式，编辑模式下可拖拽排序
+ * 支持顺序模式和自由拼贴模式，编辑模式下通过鼠标事件拖拽排序
  * 支持从桌面拖入文件添加应用
  * 网格列数和行数根据容器尺寸自动计算
  */
@@ -28,9 +37,9 @@ export function AppGrid() {
     setGridSize,
   } = useAppStore();
 
-  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [hoverCell, setHoverCell] = useState<string | null>(null);
+  const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
   const [fileDropHover, setFileDropHover] = useState(false);
-  const dragSourceRef = useRef<PinnedApp | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 自动计算网格列数和行数（基于容器尺寸）
@@ -73,7 +82,6 @@ export function AppGrid() {
               path: filePath,
             });
             if (app) {
-              // 检查是否已存在
               const exists = pinnedApps.some((p) => p.id === app.id);
               if (!exists) {
                 addPinnedApp(app);
@@ -102,88 +110,101 @@ export function AppGrid() {
     };
   }, [editMode, pinnedApps, addPinnedApp]);
 
-  // 内部拖拽：记录拖拽源应用并设置拖拽效果
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, app: PinnedApp) => {
-      dragSourceRef.current = app;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", app.id);
-      const target = e.target as HTMLElement;
-      requestAnimationFrame(() => {
-        target.classList.add("dragging");
+  /** 根据鼠标坐标计算所在的网格 cell 坐标 */
+  const getCellFromPoint = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const container = containerRef.current;
+      if (!container) return null;
+      const rect = container.getBoundingClientRect();
+      const scrollTop = container.scrollTop;
+      const relX = clientX - rect.left;
+      const relY = clientY - rect.top + scrollTop;
+      const x = Math.floor((relX - PADDING) / (CELL_SIZE + GAP));
+      const y = Math.floor((relY - PADDING) / (CELL_SIZE + GAP));
+      if (x < 0 || x >= gridCols || y < 0) return null;
+      return { x, y };
+    },
+    [gridCols]
+  );
+
+  // 全局 mousemove/mouseup 监听（拖拽进行中）
+  useEffect(() => {
+    if (!dragInfo) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      setDragInfo((prev) =>
+        prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null
+      );
+      const cell = getCellFromPoint(e.clientX, e.clientY);
+      setHoverCell(cell ? `${cell.x},${cell.y}` : null);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const cell = getCellFromPoint(e.clientX, e.clientY);
+      if (cell) {
+        const source = dragInfo.app;
+        if (layoutMode === "sequential") {
+          // 顺序模式：找到目标位置的应用并交换顺序
+          const targetApp = pinnedApps.find(
+            (p) => p.grid_x === cell.x && p.grid_y === cell.y
+          );
+          if (targetApp && targetApp.id !== source.id) {
+            const oldIndex = pinnedApps.findIndex((p) => p.id === source.id);
+            const newIndex = pinnedApps.findIndex((p) => p.id === targetApp.id);
+            if (oldIndex !== -1 && newIndex !== -1) {
+              const result = [...pinnedApps];
+              const [moved] = result.splice(oldIndex, 1);
+              result.splice(newIndex, 0, moved);
+              const reordered = result.map((p, i) => ({
+                ...p,
+                grid_x: i % gridCols,
+                grid_y: Math.floor(i / gridCols),
+                order: i,
+              }));
+              reorderPinnedApps(reordered);
+            }
+          }
+        } else {
+          // 自由磁贴模式：移动到目标位置
+          const occupied = pinnedApps.find(
+            (p) =>
+              p.tile_x === cell.x && p.tile_y === cell.y && p.id !== source.id
+          );
+          if (occupied) {
+            movePinnedApp(source.id, cell.x, cell.y);
+            movePinnedApp(occupied.id, source.tile_x, source.tile_y);
+          } else {
+            movePinnedApp(source.id, cell.x, cell.y);
+          }
+        }
+      }
+      setDragInfo(null);
+      setHoverCell(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragInfo, pinnedApps, layoutMode, gridCols, getCellFromPoint, movePinnedApp, reorderPinnedApps]);
+
+  /** 鼠标按下时开始拖拽 */
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, app: PinnedApp) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      setDragInfo({
+        app,
+        startX: e.clientX,
+        startY: e.clientY,
+        currentX: e.clientX,
+        currentY: e.clientY,
       });
     },
     []
-  );
-
-  // 拖拽结束时清理状态
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    const target = e.target as HTMLElement;
-    target.classList.remove("dragging");
-    dragSourceRef.current = null;
-    setDragOverCell(null);
-  }, []);
-
-  // 拖拽经过单元格时高亮显示
-  const handleDragOver = useCallback(
-    (e: React.DragEvent, cellKey: string) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      setDragOverCell(cellKey);
-    },
-    []
-  );
-
-  // 拖拽离开单元格时取消高亮
-  const handleDragLeave = useCallback(() => {
-    setDragOverCell(null);
-  }, []);
-
-  // 放置时根据布局模式执行排序或交换位置
-  const handleDrop = useCallback(
-    (e: React.DragEvent, targetX: number, targetY: number) => {
-      e.preventDefault();
-      setDragOverCell(null);
-
-      const source = dragSourceRef.current;
-      if (!source) return;
-
-      if (layoutMode === "sequential") {
-        const targetApp = pinnedApps.find(
-          (p) => p.grid_x === targetX && p.grid_y === targetY
-        );
-        if (targetApp && targetApp.id !== source.id) {
-          const oldIndex = pinnedApps.findIndex((p) => p.id === source.id);
-          const newIndex = pinnedApps.findIndex((p) => p.id === targetApp.id);
-          if (oldIndex !== -1 && newIndex !== -1) {
-            const result = [...pinnedApps];
-            const [moved] = result.splice(oldIndex, 1);
-            result.splice(newIndex, 0, moved);
-            const reordered = result.map((p, i) => ({
-              ...p,
-              grid_x: i % gridCols,
-              grid_y: Math.floor(i / gridCols),
-              order: i,
-            }));
-            reorderPinnedApps(reordered);
-          }
-        }
-      } else {
-        const occupied = pinnedApps.find(
-          (p) =>
-            p.grid_x === targetX && p.grid_y === targetY && p.id !== source.id
-        );
-        if (occupied) {
-          movePinnedApp(source.id, targetX, targetY);
-          movePinnedApp(occupied.id, source.grid_x, source.grid_y);
-        } else {
-          movePinnedApp(source.id, targetX, targetY);
-        }
-      }
-
-      dragSourceRef.current = null;
-    },
-    [pinnedApps, layoutMode, gridCols, movePinnedApp, reorderPinnedApps]
   );
 
   const maxRow =
@@ -194,6 +215,7 @@ export function AppGrid() {
   const cells: React.ReactNode[] = [];
 
   if (layoutMode === "sequential") {
+    // 顺序模式：仅编辑模式下可拖动
     const sorted = [...pinnedApps].sort((a, b) => a.order - b.order);
     sorted.forEach((app, i) => {
       const x = i % gridCols;
@@ -203,13 +225,10 @@ export function AppGrid() {
         <div
           key={cellKey}
           className={`grid-cell ${editMode ? "edit-mode" : ""} ${
-            dragOverCell === cellKey ? "drop-hover" : ""
+            hoverCell === cellKey ? "drop-hover" : ""
           }`}
-          onDragOver={editMode ? (e) => handleDragOver(e, cellKey) : undefined}
-          onDragLeave={editMode ? handleDragLeave : undefined}
-          onDrop={editMode ? (e) => handleDrop(e, x, y) : undefined}
         >
-          <AppIcon app={app} onDragStart={handleDragStart} />
+          <AppIcon app={app} draggable={editMode} onMouseDown={handleMouseDown} />
         </div>
       );
     });
@@ -224,19 +243,17 @@ export function AppGrid() {
           <div
             key={cellKey}
             className={`grid-cell edit-mode ${
-              dragOverCell === cellKey ? "drop-hover" : ""
+              hoverCell === cellKey ? "drop-hover" : ""
             }`}
-            onDragOver={(e) => handleDragOver(e, cellKey)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, x, y)}
           />
         );
       }
     }
   } else {
+    // 自由磁贴模式：使用 tile_x/tile_y 渲染，图标始终可拖动
     const occupiedMap = new Map<string, PinnedApp>();
     for (const app of pinnedApps) {
-      occupiedMap.set(`${app.grid_x},${app.grid_y}`, app);
+      occupiedMap.set(`${app.tile_x},${app.tile_y}`, app);
     }
 
     for (let y = 0; y < maxRow; y++) {
@@ -248,13 +265,10 @@ export function AppGrid() {
           <div
             key={cellKey}
             className={`grid-cell ${editMode ? "edit-mode" : ""} ${
-              dragOverCell === cellKey ? "drop-hover" : ""
+              hoverCell === cellKey ? "drop-hover" : ""
             }`}
-            onDragOver={editMode ? (e) => handleDragOver(e, cellKey) : undefined}
-            onDragLeave={editMode ? handleDragLeave : undefined}
-            onDrop={editMode ? (e) => handleDrop(e, x, y) : undefined}
           >
-            {app && <AppIcon app={app} onDragStart={handleDragStart} />}
+            {app && <AppIcon app={app} draggable={true} onMouseDown={handleMouseDown} />}
           </div>
         );
       }
@@ -264,8 +278,9 @@ export function AppGrid() {
   return (
     <div
       ref={containerRef}
-      className={`grid-container ${fileDropHover ? "file-drop-active" : ""}`}
-      onDragEnd={handleDragEnd}
+      className={`grid-container ${fileDropHover ? "file-drop-active" : ""} ${
+        dragInfo ? "dragging" : ""
+      }`}
     >
       <div
         className="grid"
@@ -275,7 +290,25 @@ export function AppGrid() {
       </div>
       {fileDropHover && editMode && (
         <div className="file-drop-overlay">
-          <span>Drop to add application</span>
+          <span>拖放到此处添加应用</span>
+        </div>
+      )}
+      {/* 拖拽预览图标 */}
+      {dragInfo && (
+        <div
+          className="drag-preview"
+          style={{
+            left: dragInfo.currentX - CELL_SIZE / 2,
+            top: dragInfo.currentY - CELL_SIZE / 2,
+          }}
+        >
+          <div className="drag-preview-inner">
+            {dragInfo.app.icon_data ? (
+              <img src={dragInfo.app.icon_data} alt={dragInfo.app.name} />
+            ) : (
+              <span>{dragInfo.app.name.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
         </div>
       )}
     </div>

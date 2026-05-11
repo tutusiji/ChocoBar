@@ -90,6 +90,15 @@ export function Toolbar() {
           className="btn btn-icon btn-close"
           onClick={async () => {
             const { invoke } = await import("@tauri-apps/api/core");
+            // 编辑模式下先退出编辑模式再隐藏面板
+            if (editMode) {
+              try {
+                const [w, h] = await invoke<[number, number]>("get_window_size");
+                setWindowSize(w, h);
+              } catch {}
+              await invoke("set_window_resizable", { resizable: false });
+              toggleEditMode();
+            }
             invoke("hide_panel");
           }}
           title="Close panel (Esc)"

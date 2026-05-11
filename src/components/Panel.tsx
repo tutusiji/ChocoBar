@@ -28,7 +28,7 @@ export function Panel() {
     loadState();
   }, [loadState]);
 
-  // 监听托盘菜单事件
+  // 监听托盘菜单事件和面板隐藏事件
   useEffect(() => {
     const unlisteners: Promise<() => void>[] = [];
 
@@ -45,6 +45,23 @@ export function Panel() {
     unlisteners.push(
       listen("check-update", () => {
         checkUpdate();
+      })
+    );
+
+    // 面板隐藏时自动退出编辑模式
+    unlisteners.push(
+      listen("panel-hidden", () => {
+        const store = useAppStore.getState();
+        if (store.editMode) {
+          import("@tauri-apps/api/core").then(async ({ invoke }) => {
+            try {
+              const [w, h] = await invoke<[number, number]>("get_window_size");
+              store.setWindowSize(w, h);
+            } catch {}
+            await invoke("set_window_resizable", { resizable: false });
+            store.toggleEditMode();
+          });
+        }
       })
     );
 

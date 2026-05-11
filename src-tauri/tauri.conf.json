@@ -27,11 +27,6 @@
         "center": true
       }
     ],
-    "trayIcon": {
-      "id": "main-tray",
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true
-    },
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https://asset.localhost"
     }

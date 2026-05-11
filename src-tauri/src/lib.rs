@@ -56,8 +56,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::get_installed_apps,
             commands::search_apps,
+            commands::get_app_icon,
+            commands::clear_app_cache,
             commands::resolve_app_from_path,
             commands::launch_app,
             commands::get_state,
@@ -73,6 +74,8 @@ pub fn run() {
             commands::hide_panel,
             commands::set_window_resizable,
             commands::update_shortcut,
+            commands::disable_shortcut,
+            commands::enable_shortcut,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

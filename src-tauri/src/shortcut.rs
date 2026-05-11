@@ -1,15 +1,5 @@
-use std::sync::Mutex;
-use std::time::Instant;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
-
-/// 记录上次按键时间，用于双击检测
-struct LastPress {
-    time: Instant,
-}
-
-static LAST_PRESS: Mutex<Option<LastPress>> = Mutex::new(None);
-const DOUBLE_TAP_MS: u128 = 500;
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState};
 
 /// 解析快捷键字符串为 Modifiers + Code
 ///
@@ -83,13 +73,31 @@ fn parse_shortcut(key_str: &str) -> Option<(Modifiers, Code)> {
     code.map(|c| (modifiers, c))
 }
 
-/// 注册全局快捷键（双击检测）
+/// 构建快捷键切换面板的回调
 ///
-/// 双击检测阈值为 500ms，最小间隔 50ms（防抖）
+/// 按下快捷键时直接切换面板显示/隐藏（单击触发，无需双击）
+fn build_shortcut_handler(app_handle: AppHandle) -> impl Fn(&tauri::AppHandle, &Shortcut, ShortcutEvent) + Send + Sync + 'static {
+    move |_app, _shortcut, event| {
+        if event.state != ShortcutState::Pressed {
+            return;
+        }
+
+        if let Some(window) = app_handle.get_webview_window("main") {
+            if window.is_visible().unwrap_or(false) {
+                window.hide().ok();
+                app_handle.emit("panel-hidden", ()).ok();
+            } else {
+                window.show().ok();
+                window.set_focus().ok();
+            }
+        }
+    }
+}
+
+/// 注册全局快捷键（单击触发）
 pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
 
-    // 从 state 读取快捷键配置
     let shortcut_key = {
         let state = app_handle.try_state::<std::sync::Mutex<crate::state::AppState>>();
         if let Some(s) = state {
@@ -103,85 +111,52 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
         .unwrap_or((Modifiers::CONTROL, Code::Space));
 
     let shortcut = Shortcut::new(Some(modifiers), code);
+    let handler = build_shortcut_handler(app_handle);
 
-    app.global_shortcut().on_shortcut(
-        shortcut,
-        move |_app, _shortcut, event| {
-            if event.state != ShortcutState::Pressed {
-                return;
-            }
-
-            let now = Instant::now();
-            let mut last_press = LAST_PRESS.lock().unwrap();
-
-            if let Some(ref last) = *last_press {
-                let elapsed = now.duration_since(last.time).as_millis();
-                if elapsed < DOUBLE_TAP_MS && elapsed > 50 {
-                    *last_press = None;
-                    drop(last_press);
-
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
-                            window.hide().ok();
-                        } else {
-                            window.show().ok();
-                            window.set_focus().ok();
-                        }
-                    }
-                    return;
-                }
-            }
-
-            *last_press = Some(LastPress { time: now });
-        },
-    )?;
+    app.global_shortcut().on_shortcut(shortcut, handler)?;
 
     Ok(())
 }
 
 /// 重新注册全局快捷键（用于设置更改后动态更新）
 pub fn re_register_shortcut(app: &AppHandle, shortcut_key: &str) -> Result<(), Box<dyn std::error::Error>> {
-    // 先取消所有已注册的快捷键
     app.global_shortcut().unregister_all()?;
 
     let (modifiers, code) = parse_shortcut(shortcut_key)
         .ok_or("Invalid shortcut key format")?;
 
     let shortcut = Shortcut::new(Some(modifiers), code);
-    let handle = app.clone();
+    let handler = build_shortcut_handler(app.clone());
 
-    app.global_shortcut().on_shortcut(
-        shortcut,
-        move |_app, _shortcut, event| {
-            if event.state != ShortcutState::Pressed {
-                return;
-            }
+    app.global_shortcut().on_shortcut(shortcut, handler)?;
 
-            let now = Instant::now();
-            let mut last_press = LAST_PRESS.lock().unwrap();
+    Ok(())
+}
 
-            if let Some(ref last) = *last_press {
-                let elapsed = now.duration_since(last.time).as_millis();
-                if elapsed < DOUBLE_TAP_MS && elapsed > 50 {
-                    *last_press = None;
-                    drop(last_press);
+/// 临时禁用全局快捷键（用于快捷键录制时）
+pub fn disable_shortcut(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    app.global_shortcut().unregister_all()?;
+    Ok(())
+}
 
-                    let window: Option<tauri::WebviewWindow> = handle.get_webview_window("main");
-                    if let Some(w) = window {
-                        if w.is_visible().unwrap_or(false) {
-                            w.hide().ok();
-                        } else {
-                            w.show().ok();
-                            w.set_focus().ok();
-                        }
-                    }
-                    return;
-                }
-            }
+/// 重新启用全局快捷键（录制结束后）
+pub fn enable_shortcut(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let shortcut_key = {
+        let state = app.try_state::<std::sync::Mutex<crate::state::AppState>>();
+        if let Some(s) = state {
+            s.lock().unwrap().shortcut_key.clone()
+        } else {
+            "ctrl+space".to_string()
+        }
+    };
 
-            *last_press = Some(LastPress { time: now });
-        },
-    )?;
+    let (modifiers, code) = parse_shortcut(&shortcut_key)
+        .unwrap_or((Modifiers::CONTROL, Code::Space));
+
+    let shortcut = Shortcut::new(Some(modifiers), code);
+    let handler = build_shortcut_handler(app.clone());
+
+    app.global_shortcut().on_shortcut(shortcut, handler)?;
 
     Ok(())
 }
