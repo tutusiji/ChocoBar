@@ -18,6 +18,7 @@ export function Panel() {
     opacity,
     backgroundImage,
     backgroundMode,
+    backgroundBlur,
     editMode,
     setSettingsOpen,
     setAboutOpen,
@@ -106,38 +107,39 @@ export function Panel() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // 根据透明度和背景图计算面板样式
-  const panelStyle = useMemo(() => {
+  // 背景图层样式（含模糊）
+  const bgStyle = useMemo(() => {
+    if (!backgroundImage) return undefined;
     const style: React.CSSProperties = {
-      background: `rgba(30, 30, 30, ${opacity})`,
+      backgroundImage: `url(${backgroundImage})`,
+      opacity,
+      filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : undefined,
     };
-
-    if (backgroundImage) {
-      style.backgroundImage = `url(${backgroundImage})`;
-      switch (backgroundMode) {
-        case "stretch":
-          style.backgroundSize = "cover";
-          style.backgroundRepeat = "no-repeat";
-          style.backgroundPosition = "center";
-          break;
-        case "tile":
-          style.backgroundSize = "auto";
-          style.backgroundRepeat = "repeat";
-          break;
-        case "center":
-          style.backgroundSize = "auto";
-          style.backgroundRepeat = "no-repeat";
-          style.backgroundPosition = "center";
-          break;
-      }
+    switch (backgroundMode) {
+      case "stretch":
+        style.backgroundSize = "100% 100%";
+        style.backgroundRepeat = "no-repeat";
+        break;
+      case "tile":
+        style.backgroundSize = "auto";
+        style.backgroundRepeat = "repeat";
+        break;
+      case "center":
+        style.backgroundSize = "auto";
+        style.backgroundRepeat = "no-repeat";
+        style.backgroundPosition = "center";
+        break;
     }
-
     return style;
-  }, [opacity, backgroundImage, backgroundMode]);
+  }, [backgroundImage, backgroundMode, backgroundBlur, opacity]);
 
   return (
     <>
-      <div className={`panel ${editMode ? "edit-resize" : ""}`} style={panelStyle}>
+      <div
+        className={`panel ${editMode ? "edit-resize" : ""}`}
+        style={{ backgroundColor: `rgba(30, 30, 30, ${opacity})` }}
+      >
+        {backgroundImage && <div className="panel-bg" style={bgStyle} />}
         <Toolbar />
         <AppGrid />
       </div>

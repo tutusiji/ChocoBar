@@ -5,6 +5,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+/* 背景图层（含高斯模糊） */
+.panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* Toolbar */
@@ -17,6 +26,8 @@
   border-bottom: 1px solid var(--panel-border);
   -webkit-app-region: drag;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .toolbar-left {
@@ -98,6 +109,8 @@
   padding: 10px;
   -webkit-app-region: no-drag;
   pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .grid {
@@ -236,36 +249,41 @@
 /* Drag preview */
 .drag-preview {
   position: fixed;
+  left: 0;
+  top: 0;
   width: var(--cell-size);
   height: var(--cell-size);
   pointer-events: none;
   z-index: 999;
-  opacity: 0.7;
+  opacity: 0.75;
   display: flex;
   align-items: center;
   justify-content: center;
+  will-change: transform;
 }
 
 .drag-preview-inner {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
-  background: rgba(30, 30, 30, 0.9);
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: rgba(30, 30, 30, 0.92);
   border: 2px solid var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
 }
 
 .drag-preview-inner img {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
+  image-rendering: auto;
 }
 
 .drag-preview-inner span {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--accent);
 }

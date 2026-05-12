@@ -16,10 +16,12 @@ export function SettingsModal() {
     opacity,
     backgroundMode,
     backgroundImage,
+    backgroundBlur,
     shortcutKey,
     setWindowSize,
     setOpacity,
     setBackgroundMode,
+    setBackgroundBlur,
     setBackgroundImage,
     pickBackgroundImage,
     saveShortcutKey,
@@ -28,6 +30,7 @@ export function SettingsModal() {
   const [width, setWidth] = useState(windowWidth);
   const [height, setHeight] = useState(windowHeight);
   const [localOpacity, setLocalOpacity] = useState(opacity);
+  const [localBlur, setLocalBlur] = useState(backgroundBlur);
   const [localShortcut, setLocalShortcut] = useState(shortcutKey);
   const [recording, setRecording] = useState(false);
   const shortcutRef = useRef<HTMLDivElement>(null);
@@ -37,10 +40,11 @@ export function SettingsModal() {
       setWidth(windowWidth);
       setHeight(windowHeight);
       setLocalOpacity(opacity);
+      setLocalBlur(backgroundBlur);
       setLocalShortcut(shortcutKey);
       setRecording(false);
     }
-  }, [settingsOpen, windowWidth, windowHeight, opacity, shortcutKey]);
+  }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey]);
 
   // 快捷键录制：监听键盘组合
   const handleShortcutKeyDown = useCallback(
@@ -110,6 +114,7 @@ export function SettingsModal() {
   const handleSave = () => {
     setWindowSize(width, height);
     setOpacity(localOpacity);
+    setBackgroundBlur(localBlur);
     if (localShortcut !== shortcutKey) {
       saveShortcutKey(localShortcut);
     } else {
@@ -125,6 +130,12 @@ export function SettingsModal() {
   const handleOpacityChange = (value: number) => {
     setLocalOpacity(value);
     setOpacity(value);
+  };
+
+  // 实时更新背景模糊（滑块拖动时即时生效）
+  const handleBlurChange = (value: number) => {
+    setLocalBlur(value);
+    setBackgroundBlur(value);
   };
 
   // 格式化快捷键显示
@@ -247,22 +258,36 @@ export function SettingsModal() {
           </div>
 
           {backgroundImage && (
-            <div className="settings-row">
-              <label>填充</label>
-              <div className="settings-btn-group">
-                {(["stretch", "tile", "center"] as BackgroundMode[]).map(
-                  (mode) => (
-                    <button
-                      key={mode}
-                      className={`btn ${backgroundMode === mode ? "active" : ""}`}
-                      onClick={() => setBackgroundMode(mode)}
-                    >
-                      {modeLabels[mode]}
-                    </button>
-                  )
-                )}
+            <>
+              <div className="settings-row">
+                <label>模糊</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={30}
+                  value={localBlur}
+                  onChange={(e) => handleBlurChange(Number(e.target.value))}
+                  className="settings-slider"
+                />
+                <span className="settings-value">{localBlur}px</span>
               </div>
-            </div>
+              <div className="settings-row">
+                <label>填充</label>
+                <div className="settings-btn-group">
+                  {(["stretch", "tile", "center"] as BackgroundMode[]).map(
+                    (mode) => (
+                      <button
+                        key={mode}
+                        className={`btn ${backgroundMode === mode ? "active" : ""}`}
+                        onClick={() => setBackgroundMode(mode)}
+                      >
+                        {modeLabels[mode]}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 

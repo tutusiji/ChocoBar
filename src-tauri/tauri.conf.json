@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
-  "productName": "ChocoPanel",
+  "productName": "ChocoBar",
   "version": "0.1.0",
   "identifier": "com.chocopanel.app",
   "build": {
@@ -13,9 +13,9 @@
     "windows": [
       {
         "label": "main",
-        "title": "ChocoPanel",
-        "width": 1200,
-        "height": 800,
+        "title": "ChocoBar",
+        "width": 1168,
+        "height": 734,
         "minWidth": 600,
         "minHeight": 400,
         "decorations": false,

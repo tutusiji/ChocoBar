@@ -31,7 +31,7 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 .expect("加载托盘图标失败")
         }))
         .menu(&menu)
-        .tooltip("ChocoPanel - 按 Ctrl+Space 显示面板")
+        .tooltip("ChocoBar - 按 Ctrl+Space 显示面板")
         .on_menu_event(move |app, event| {
             match event.id().as_ref() {
                 "show" => {

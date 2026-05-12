@@ -9,15 +9,6 @@ const CELL_SIZE = 88;
 const GAP = 6;
 const PADDING = 10;
 
-/** 拖拽状态 */
-interface DragInfo {
-  app: PinnedApp;
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
-}
-
 /**
  * 应用网格组件
  * 支持顺序模式和自由拼贴模式，编辑模式下通过鼠标事件拖拽排序
@@ -38,9 +29,12 @@ export function AppGrid() {
   } = useAppStore();
 
   const [hoverCell, setHoverCell] = useState<string | null>(null);
-  const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
+  const [dragApp, setDragApp] = useState<PinnedApp | null>(null);
   const [fileDropHover, setFileDropHover] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const mousePosRef = useRef({ x: 0, y: 0 });
+  const rafRef = useRef<number>(0);
 
   // 自动计算网格列数和行数（基于容器尺寸）
   useEffect(() => {
@@ -129,23 +123,30 @@ export function AppGrid() {
 
   // 全局 mousemove/mouseup 监听（拖拽进行中）
   useEffect(() => {
-    if (!dragInfo) return;
+    if (!dragApp) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault();
-      setDragInfo((prev) =>
-        prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null
-      );
+      mousePosRef.current = { x: e.clientX, y: e.clientY };
+      // 通过 rAF 直接更新预览位置，不触发 React 重渲染
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        if (previewRef.current) {
+          previewRef.current.style.transform = `translate(${e.clientX - CELL_SIZE / 2}px, ${e.clientY - CELL_SIZE / 2}px)`;
+        }
+      });
+      // 只在 cell 变化时更新 state
       const cell = getCellFromPoint(e.clientX, e.clientY);
-      setHoverCell(cell ? `${cell.x},${cell.y}` : null);
+      const key = cell ? `${cell.x},${cell.y}` : null;
+      setHoverCell((prev) => (prev === key ? prev : key));
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      cancelAnimationFrame(rafRef.current);
       const cell = getCellFromPoint(e.clientX, e.clientY);
       if (cell) {
-        const source = dragInfo.app;
+        const source = dragApp;
         if (layoutMode === "sequential") {
-          // 顺序模式：找到目标位置的应用并交换顺序
           const targetApp = pinnedApps.find(
             (p) => p.grid_x === cell.x && p.grid_y === cell.y
           );
@@ -166,7 +167,6 @@ export function AppGrid() {
             }
           }
         } else {
-          // 自由磁贴模式：移动到目标位置
           const occupied = pinnedApps.find(
             (p) =>
               p.tile_x === cell.x && p.tile_y === cell.y && p.id !== source.id
@@ -179,7 +179,7 @@ export function AppGrid() {
           }
         }
       }
-      setDragInfo(null);
+      setDragApp(null);
       setHoverCell(null);
     };
 
@@ -188,21 +188,17 @@ export function AppGrid() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      cancelAnimationFrame(rafRef.current);
     };
-  }, [dragInfo, pinnedApps, layoutMode, gridCols, getCellFromPoint, movePinnedApp, reorderPinnedApps]);
+  }, [dragApp, pinnedApps, layoutMode, gridCols, getCellFromPoint, movePinnedApp, reorderPinnedApps]);
 
   /** 鼠标按下时开始拖拽 */
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, app: PinnedApp) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      setDragInfo({
-        app,
-        startX: e.clientX,
-        startY: e.clientY,
-        currentX: e.clientX,
-        currentY: e.clientY,
-      });
+      mousePosRef.current = { x: e.clientX, y: e.clientY };
+      setDragApp(app);
     },
     []
   );
@@ -215,7 +211,6 @@ export function AppGrid() {
   const cells: React.ReactNode[] = [];
 
   if (layoutMode === "sequential") {
-    // 顺序模式：仅编辑模式下可拖动
     const sorted = [...pinnedApps].sort((a, b) => a.order - b.order);
     sorted.forEach((app, i) => {
       const x = i % gridCols;
@@ -250,7 +245,6 @@ export function AppGrid() {
       }
     }
   } else {
-    // 自由磁贴模式：使用 tile_x/tile_y 渲染，图标始终可拖动
     const occupiedMap = new Map<string, PinnedApp>();
     for (const app of pinnedApps) {
       occupiedMap.set(`${app.tile_x},${app.tile_y}`, app);
@@ -268,7 +262,7 @@ export function AppGrid() {
               hoverCell === cellKey ? "drop-hover" : ""
             }`}
           >
-            {app && <AppIcon app={app} draggable={true} onMouseDown={handleMouseDown} />}
+            {app && <AppIcon app={app} draggable={editMode} onMouseDown={handleMouseDown} />}
           </div>
         );
       }
@@ -279,7 +273,7 @@ export function AppGrid() {
     <div
       ref={containerRef}
       className={`grid-container ${fileDropHover ? "file-drop-active" : ""} ${
-        dragInfo ? "dragging" : ""
+        dragApp ? "dragging" : ""
       }`}
     >
       <div
@@ -293,20 +287,20 @@ export function AppGrid() {
           <span>拖放到此处添加应用</span>
         </div>
       )}
-      {/* 拖拽预览图标 */}
-      {dragInfo && (
+      {/* 拖拽预览图标 — 使用 ref 直接操作 DOM 避免重渲染 */}
+      {dragApp && (
         <div
+          ref={previewRef}
           className="drag-preview"
           style={{
-            left: dragInfo.currentX - CELL_SIZE / 2,
-            top: dragInfo.currentY - CELL_SIZE / 2,
+            transform: `translate(${mousePosRef.current.x - CELL_SIZE / 2}px, ${mousePosRef.current.y - CELL_SIZE / 2}px)`,
           }}
         >
           <div className="drag-preview-inner">
-            {dragInfo.app.icon_data ? (
-              <img src={dragInfo.app.icon_data} alt={dragInfo.app.name} />
+            {dragApp.icon_data ? (
+              <img src={dragApp.icon_data} alt={dragApp.name} />
             ) : (
-              <span>{dragInfo.app.name.charAt(0).toUpperCase()}</span>
+              <span>{dragApp.name.charAt(0).toUpperCase()}</span>
             )}
           </div>
         </div>

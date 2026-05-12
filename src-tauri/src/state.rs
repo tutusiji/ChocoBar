@@ -70,6 +70,9 @@ pub struct AppState {
     pub opacity: f64,
     pub background_image: Option<String>,
     pub background_mode: BackgroundMode,
+    /// 背景图高斯模糊半径（0-30，默认 0）
+    #[serde(default)]
+    pub background_blur: u32,
     pub shortcut_key: String,
 }
 
@@ -78,10 +81,11 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             pinned_apps: Vec::new(),
-            layout_mode: LayoutMode::Sequential,
+            layout_mode: LayoutMode::FreeTile,
             opacity: 0.85,
             background_image: None,
             background_mode: BackgroundMode::Stretch,
+            background_blur: 0,
             shortcut_key: "ctrl+space".to_string(),
         }
     }

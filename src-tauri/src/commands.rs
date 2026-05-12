@@ -4,7 +4,11 @@ use crate::shortcut;
 use crate::state::{AppState, BackgroundMode, LayoutMode, PinnedApp};
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
+use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Windows CREATE_NO_WINDOW 标志，防止 PowerShell 窗口闪烁
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// IPC 命令：按关键词搜索已安装应用（使用缓存，速度极快）
 #[tauri::command]
@@ -69,6 +73,7 @@ pub fn resolve_app_from_path(path: String) -> Option<AppItem> {
 pub fn launch_app(path: String) -> Result<(), String> {
     if path.to_lowercase().ends_with(".lnk") {
         std::process::Command::new("cmd")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["/C", "start", "", &path])
             .spawn()
             .map_err(|e| format!("Failed to launch: {}", e))?;
@@ -95,6 +100,7 @@ pub fn save_state(
     opacity: f64,
     background_image: Option<String>,
     background_mode: BackgroundMode,
+    background_blur: u32,
     shortcut_key: String,
     state: State<'_, Mutex<AppState>>,
 ) {
@@ -104,6 +110,7 @@ pub fn save_state(
     s.opacity = opacity;
     s.background_image = background_image;
     s.background_mode = background_mode;
+    s.background_blur = background_blur;
     s.shortcut_key = shortcut_key;
     s.save();
 }
@@ -153,6 +160,7 @@ pub fn pick_background_image() -> Option<String> {
     "#;
 
     let output = std::process::Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .args(["-NoProfile", "-Command", ps_script])
         .output()
         .ok()?;
@@ -192,12 +200,13 @@ pub fn pick_background_image() -> Option<String> {
 #[tauri::command]
 pub fn get_app_info() -> serde_json::Value {
     serde_json::json!({
-        "name": "ChocoPanel",
+        "name": "ChocoBar",
         "version": "0.1.0",
-        "description": "A lightweight Windows quick-launch panel",
-        "author": "ChocoPanel Developer",
-        "website": "https://github.com/chocopanel",
-        "email": "dev@chocopanel.app",
+        "description": "一个快乐的巧克力板样式的应用快速启动器",
+        "author": "tutusiji",
+        "website": "https://tuziki.com",
+        "github": "https://github.com/tutusiji/ChocoBar",
+        "email": "123507356@qq.com",
         "license": "MIT"
     })
 }

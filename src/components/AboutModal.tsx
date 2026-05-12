@@ -18,12 +18,13 @@ export function AboutModal() {
   if (!aboutOpen) return null;
 
   const info = appInfo || {
-    name: "ChocoPanel",
+    name: "ChocoBar",
     version: "0.1.0",
-    description: "A lightweight Windows quick-launch panel",
-    author: "ChocoPanel Developer",
-    website: "https://github.com/chocopanel",
-    email: "dev@chocopanel.app",
+    description: "一个快乐的巧克力板样式的应用快速启动器",
+    author: "tutusiji",
+    website: "https://tuziki.com",
+    github: "https://github.com/tutusiji/ChocoBar",
+    email: "123507356@qq.com",
     license: "MIT",
   };
 
@@ -81,14 +82,14 @@ export function AboutModal() {
               </a>
             </div>
             <div className="about-info-row">
-              <Mail size={14} />
-              <a href={`mailto:${info.email}`}>{info.email}</a>
-            </div>
-            <div className="about-info-row">
               <Github size={14} />
-              <a href={info.website} target="_blank" rel="noreferrer">
+              <a href={info.github} target="_blank" rel="noreferrer">
                 GitHub
               </a>
+            </div>
+            <div className="about-info-row">
+              <Mail size={14} />
+              <a href={`mailto:${info.email}`}>{info.email}</a>
             </div>
           </div>
         </div>

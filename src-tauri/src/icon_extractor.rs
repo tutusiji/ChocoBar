@@ -1,6 +1,10 @@
 use base64::Engine;
 use image::ImageEncoder;
+use std::os::windows::process::CommandExt;
 use std::path::Path;
+
+/// Windows CREATE_NO_WINDOW 标志，防止 PowerShell 窗口闪烁
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// 从应用路径或图标路径提取图标，返回 base64 data URI
 ///
@@ -99,6 +103,7 @@ fn ico_to_png(ico_data: &[u8]) -> Option<Vec<u8>> {
 /// 从 .lnk 快捷方式文件解析目标并提取图标
 fn extract_from_lnk(lnk_path: &str) -> Option<String> {
     let output = std::process::Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .args([
             "-NoProfile",
             "-Command",
@@ -144,6 +149,7 @@ fn extract_exe_icon_via_powershell(exe_path: &str) -> Option<String> {
     );
 
     let output = std::process::Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
         .args(["-NoProfile", "-Command", &ps_script])
         .output()
         .ok()?;

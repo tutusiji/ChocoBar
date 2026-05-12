@@ -50,6 +50,8 @@ export interface AppState {
   background_image: string | null;
   /** 背景图填充模式 */
   background_mode: BackgroundMode;
+  /** 背景图高斯模糊半径（0-30） */
+  background_blur: number;
   /** 全局快捷键（如 "ctrl+space"） */
   shortcut_key: string;
 }
@@ -61,6 +63,7 @@ export interface AppInfo {
   description: string;
   author: string;
   website: string;
+  github: string;
   email: string;
   license: string;
 }

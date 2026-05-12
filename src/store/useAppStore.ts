@@ -28,6 +28,7 @@ interface AppStore {
   opacity: number;
   backgroundImage: string | null;
   backgroundMode: BackgroundMode;
+  backgroundBlur: number;
   appInfo: AppInfo | null;
   updateInfo: UpdateInfo | null;
   shortcutKey: string;
@@ -51,6 +52,7 @@ interface AppStore {
   setOpacity: (opacity: number) => void;
   setBackgroundImage: (img: string | null) => void;
   setBackgroundMode: (mode: BackgroundMode) => void;
+  setBackgroundBlur: (blur: number) => void;
   pickBackgroundImage: () => Promise<void>;
   fetchAppInfo: () => Promise<void>;
   checkUpdate: () => Promise<void>;
@@ -77,6 +79,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   opacity: 0.85,
   backgroundImage: null,
   backgroundMode: "stretch",
+  backgroundBlur: 0,
   appInfo: null,
   updateInfo: null,
   shortcutKey: "ctrl+space",
@@ -98,6 +101,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         opacity: state.opacity,
         backgroundImage: state.background_image,
         backgroundMode: state.background_mode,
+        backgroundBlur: (state as any).background_blur ?? 0,
         shortcutKey: state.shortcut_key || "ctrl+space",
         windowWidth: w,
         windowHeight: h,
@@ -115,6 +119,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       opacity,
       backgroundImage,
       backgroundMode,
+      backgroundBlur,
       shortcutKey,
     } = get();
     try {
@@ -124,6 +129,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         opacity,
         backgroundImage,
         backgroundMode,
+        backgroundBlur,
         shortcutKey,
       });
     } catch (e) {
@@ -309,16 +315,49 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveState();
   },
 
+  setBackgroundBlur: (blur: number) => {
+    set({ backgroundBlur: blur });
+    get().saveState();
+  },
+
+  /** 通过 HTML 文件选择器上传背景图片并转为 base64 data URI */
   pickBackgroundImage: async () => {
-    try {
-      const result = await invoke<string | null>("pick_background_image");
-      if (result) {
-        set({ backgroundImage: result });
-        get().saveState();
-      }
-    } catch (e) {
-      console.error("选择背景图片失败:", e);
-    }
+    return new Promise<void>((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/png,image/jpeg,image/gif,image/bmp,image/webp";
+      input.style.display = "none";
+      document.body.appendChild(input);
+
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) {
+          input.remove();
+          resolve();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          set({ backgroundImage: reader.result as string });
+          get().saveState();
+          input.remove();
+          resolve();
+        };
+        reader.onerror = () => {
+          console.error("读取背景图片失败");
+          input.remove();
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      };
+
+      input.oncancel = () => {
+        input.remove();
+        resolve();
+      };
+
+      input.click();
+    });
   },
 
   fetchAppInfo: async () => {
