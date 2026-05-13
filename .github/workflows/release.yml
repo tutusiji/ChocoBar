@@ -2,20 +2,86 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - tauriV2
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current version and bump
+        id: bump
+        run: |
+          # 从 package.json 获取当前版本
+          CURRENT_VERSION=$(grep -oP '"version":\s*"\K[^"]+' package.json)
+          echo "Current version: $CURRENT_VERSION"
+
+          # 解析版本号
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # 递增 patch 版本
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          NEW_TAG="v${NEW_VERSION}"
+
+          echo "New version: $NEW_VERSION"
+          echo "New tag: $NEW_TAG"
+
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Update version in files
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.version }}"
+
+          # 更新 package.json
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" package.json
+
+          # 更新 Cargo.toml
+          sed -i "s/^version = \"[^\"]*\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
+
+          # 更新 tauri.conf.json
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" src-tauri/tauri.conf.json
+
+          # 更新 commands.rs 中的版本号
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/g" src-tauri/src/commands.rs
+
+      - name: Commit and push version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.version }}"
+          git push
+
+      - name: Create tag
+        run: |
+          git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
+          git push origin "${{ steps.bump.outputs.tag }}"
+
   publish:
     name: Build and Release
+    needs: version
     runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -38,10 +104,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'ChocoBar ${{ github.ref_name }}'
+          tagName: ${{ needs.version.outputs.tag }}
+          releaseName: 'ChocoBar ${{ needs.version.outputs.tag }}'
           releaseBody: |
-            ## ChocoBar ${{ github.ref_name }}
+            ## ChocoBar ${{ needs.version.outputs.tag }}
 
             请查看下方资源下载对应版本的安装包。
 
