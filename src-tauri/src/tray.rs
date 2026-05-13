@@ -5,10 +5,40 @@ use tauri::{
     App, Emitter, Manager,
 };
 
+/// 格式化快捷键显示（将 ctrl+space 转换为 Ctrl+Space）
+fn format_shortcut(key: &str) -> String {
+    key.split('+')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    let rest: String = chars.collect();
+                    format!("{}{}", upper, rest)
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
 /// 创建系统托盘图标
 ///
 /// 包含右键菜单（显示面板、设置、关于、检查更新、退出）和左键点击切换面板
 pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    // 从状态中读取快捷键
+    let shortcut_key = {
+        let state = app.try_state::<std::sync::Mutex<crate::state::AppState>>();
+        if let Some(s) = state {
+            s.lock().unwrap().shortcut_key.clone()
+        } else {
+            "ctrl+space".to_string()
+        }
+    };
+
+    let tooltip = format!("ChocoBar - 按 {} 显示面板", format_shortcut(&shortcut_key));
+
     let show_item = MenuItemBuilder::with_id("show", "显示面板").build(app)?;
     let settings_item = MenuItemBuilder::with_id("settings", "设置").build(app)?;
     let about_item = MenuItemBuilder::with_id("about", "关于").build(app)?;
@@ -31,7 +61,7 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 .expect("加载托盘图标失败")
         }))
         .menu(&menu)
-        .tooltip("ChocoBar - 按 Ctrl+Space 显示面板")
+        .tooltip(&tooltip)
         .on_menu_event(move |app, event| {
             match event.id().as_ref() {
                 "show" => {

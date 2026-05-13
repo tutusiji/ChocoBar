@@ -264,6 +264,32 @@ pub fn set_window_resizable(resizable: bool, app: AppHandle) -> Result<(), Strin
     Ok(())
 }
 
+/// 格式化快捷键显示（将 ctrl+space 转换为 Ctrl+Space）
+fn format_shortcut_display(key: &str) -> String {
+    key.split('+')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    let rest: String = chars.collect();
+                    format!("{}{}", upper, rest)
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
+/// 更新托盘 tooltip 显示当前快捷键
+fn update_tray_tooltip(app: &AppHandle, shortcut_key: &str) {
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let tooltip = format!("ChocoBar - 按 {} 显示面板", format_shortcut_display(shortcut_key));
+        tray.set_tooltip(Some(&tooltip)).ok();
+    }
+}
+
 /// IPC 命令：更新全局快捷键
 #[tauri::command]
 pub fn update_shortcut(shortcut_key: String, app: AppHandle, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
@@ -273,7 +299,12 @@ pub fn update_shortcut(shortcut_key: String, app: AppHandle, state: State<'_, Mu
         s.save();
     }
     shortcut::re_register_shortcut(&app, &shortcut_key)
-        .map_err(|e| format!("Failed to register shortcut: {}", e))
+        .map_err(|e| format!("Failed to register shortcut: {}", e))?;
+
+    // 更新托盘 tooltip
+    update_tray_tooltip(&app, &shortcut_key);
+
+    Ok(())
 }
 
 /// IPC 命令：临时禁用全局快捷键（快捷键录制时使用）
