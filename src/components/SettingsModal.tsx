@@ -35,6 +35,7 @@ export function SettingsModal() {
   const [recording, setRecording] = useState(false);
   const shortcutRef = useRef<HTMLDivElement>(null);
   const recordingRef = useRef(false);
+  const stopRecordingRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (settingsOpen) {
@@ -48,36 +49,63 @@ export function SettingsModal() {
     }
   }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey]);
 
-  // 快捷键录制：监听键盘组合
-  const handleShortcutKeyDown = (e: KeyboardEvent) => {
-    if (!recordingRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    // 忽略单独的修饰键
-    if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
-
-    const parts: string[] = [];
-    if (e.ctrlKey) parts.push("ctrl");
-    if (e.altKey) parts.push("alt");
-    if (e.shiftKey) parts.push("shift");
-    if (e.metaKey) parts.push("super");
-
-    // 将按键名标准化
-    let key = e.key.toLowerCase();
-    if (key === " ") key = "space";
-    else if (key === "escape") {
-      stopRecording();
-      return;
-    }
-
-    parts.push(key);
-    const combo = parts.join("+");
-    setLocalShortcut(combo);
-    stopRecording();
+  // 停止录制并重新启用全局快捷键
+  const stopRecording = () => {
+    recordingRef.current = false;
+    setRecording(false);
+    invoke("enable_shortcut").catch((e) =>
+      console.error("启用快捷键失败:", e)
+    );
   };
 
+  // 更新 stopRecording ref
+  stopRecordingRef.current = stopRecording;
+
+  // 开始录制快捷键（确保全局快捷键禁用后才开始录制）
+  const startRecording = async () => {
+    try {
+      // 先设置录制标志，确保按键事件能被处理
+      recordingRef.current = true;
+      setRecording(true);
+      // 禁用全局快捷键
+      await invoke("disable_shortcut");
+    } catch (e) {
+      console.error("禁用快捷键失败:", e);
+      recordingRef.current = false;
+      setRecording(false);
+    }
+  };
+
+  // 快捷键录制：监听键盘组合（使用稳定的事件处理器）
   useEffect(() => {
+    const handleShortcutKeyDown = (e: KeyboardEvent) => {
+      if (!recordingRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 忽略单独的修饰键
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
+
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      if (e.metaKey) parts.push("super");
+
+      // 将按键名标准化
+      let key = e.key.toLowerCase();
+      if (key === " ") key = "space";
+      else if (key === "escape") {
+        stopRecordingRef.current();
+        return;
+      }
+
+      parts.push(key);
+      const combo = parts.join("+");
+      setLocalShortcut(combo);
+      stopRecordingRef.current();
+    };
+
     window.addEventListener("keydown", handleShortcutKeyDown, true);
     return () => window.removeEventListener("keydown", handleShortcutKeyDown, true);
   }, []);
@@ -98,30 +126,6 @@ export function SettingsModal() {
   }, [recording]);
 
   if (!settingsOpen) return null;
-
-  // 停止录制并重新启用全局快捷键
-  const stopRecording = () => {
-    recordingRef.current = false;
-    setRecording(false);
-    invoke("enable_shortcut").catch((e) =>
-      console.error("启用快捷键失败:", e)
-    );
-  };
-
-  // 开始录制快捷键（确保全局快捷键禁用后才开始录制）
-  const startRecording = async () => {
-    try {
-      // 先设置录制标志，确保按键事件能被处理
-      recordingRef.current = true;
-      setRecording(true);
-      // 禁用全局快捷键
-      await invoke("disable_shortcut");
-    } catch (e) {
-      console.error("禁用快捷键失败:", e);
-      recordingRef.current = false;
-      setRecording(false);
-    }
-  };
 
   // 保存所有设置并关闭面板
   const handleSave = () => {

@@ -216,8 +216,8 @@ pub fn get_app_info() -> serde_json::Value {
 pub fn check_update() -> serde_json::Value {
     serde_json::json!({
         "has_update": false,
-        "current_version": "0.2.7",
-        "latest_version": "0.2.7",
+        "current_version": "0.2.8",
+        "latest_version": "0.2.8",
         "message": "You are using the latest version."
     })
 }
