@@ -4,7 +4,7 @@
 
 一个基于 Tauri v2 的轻量级 Windows 快速启动面板。按 `Ctrl + Space` 即可在屏幕最顶层显示浮动面板，再按一次隐藏，也可按 `Esc` 隐藏。
 
-> **[下载 ChocoBar v0.1.0](https://tuziki.com/demo/chocobar/ChocoBar_0.1.0.exe)**
+> **[下载 ChocoBar](https://github.com/tutusiji/ChocoBar/releases/latest)** - 请在 Releases 页面下载最新版本
 
 [English](./README_EN.md)
 

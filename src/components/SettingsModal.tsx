@@ -33,6 +33,7 @@ export function SettingsModal() {
   const [localBlur, setLocalBlur] = useState(backgroundBlur);
   const [localShortcut, setLocalShortcut] = useState(shortcutKey);
   const [recording, setRecording] = useState(false);
+  const [shortcutDisabled, setShortcutDisabled] = useState(false);
   const shortcutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,13 +44,14 @@ export function SettingsModal() {
       setLocalBlur(backgroundBlur);
       setLocalShortcut(shortcutKey);
       setRecording(false);
+      setShortcutDisabled(false);
     }
   }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey]);
 
   // 快捷键录制：监听键盘组合
   const handleShortcutKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (!recording) return;
+      if (!recording || !shortcutDisabled) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -67,6 +69,10 @@ export function SettingsModal() {
       if (key === " ") key = "space";
       else if (key === "escape") {
         setRecording(false);
+        invoke("enable_shortcut").catch((e) =>
+          console.error("启用快捷键失败:", e)
+        );
+        setShortcutDisabled(false);
         return;
       }
 
@@ -78,17 +84,18 @@ export function SettingsModal() {
       invoke("enable_shortcut").catch((e) =>
         console.error("启用快捷键失败:", e)
       );
+      setShortcutDisabled(false);
     },
-    [recording]
+    [recording, shortcutDisabled]
   );
 
   useEffect(() => {
-    if (recording) {
+    if (recording && shortcutDisabled) {
       window.addEventListener("keydown", handleShortcutKeyDown, true);
       return () =>
         window.removeEventListener("keydown", handleShortcutKeyDown, true);
     }
-  }, [recording, handleShortcutKeyDown]);
+  }, [recording, shortcutDisabled, handleShortcutKeyDown]);
 
   // 失焦时停止录制并重新启用全局快捷键
   useEffect(() => {
@@ -102,6 +109,7 @@ export function SettingsModal() {
         invoke("enable_shortcut").catch((e) =>
           console.error("启用快捷键失败:", e)
         );
+        setShortcutDisabled(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -109,6 +117,17 @@ export function SettingsModal() {
   }, [recording]);
 
   if (!settingsOpen) return null;
+
+  // 开始录制快捷键（确保全局快捷键禁用后才开始录制）
+  const startRecording = async () => {
+    try {
+      await invoke("disable_shortcut");
+      setShortcutDisabled(true);
+      setRecording(true);
+    } catch (e) {
+      console.error("禁用快捷键失败:", e);
+    }
+  };
 
   // 保存所有设置并关闭面板
   const handleSave = () => {
@@ -155,7 +174,7 @@ export function SettingsModal() {
 
   return (
     <div
-      className="search-overlay"
+      className="settings-overlay"
       style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) setSettingsOpen(false);
@@ -200,20 +219,11 @@ export function SettingsModal() {
             <div
               ref={shortcutRef}
               className={`shortcut-input ${recording ? "recording" : ""}`}
-              onClick={() => {
-                setRecording(true);
-                // 录制时临时禁用全局快捷键，避免冲突
-                invoke("disable_shortcut").catch((e) =>
-                  console.error("禁用快捷键失败:", e)
-                );
-              }}
+              onClick={startRecording}
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  setRecording(true);
-                  invoke("disable_shortcut").catch((e) =>
-                    console.error("禁用快捷键失败:", e)
-                  );
+                  startRecording();
                 }
               }}
             >
