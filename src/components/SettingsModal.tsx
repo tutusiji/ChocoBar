@@ -111,11 +111,17 @@ export function SettingsModal() {
   // 开始录制快捷键（确保全局快捷键禁用后才开始录制）
   const startRecording = async () => {
     try {
-      await invoke("disable_shortcut");
-      recordingRef.current = true;
+      // 先显示录制状态
       setRecording(true);
+      // 禁用全局快捷键
+      await invoke("disable_shortcut");
+      // 添加延迟确保系统级别的快捷键完全禁用
+      await new Promise(resolve => setTimeout(resolve, 100));
+      // 设置录制标志
+      recordingRef.current = true;
     } catch (e) {
       console.error("禁用快捷键失败:", e);
+      setRecording(false);
     }
   };
 

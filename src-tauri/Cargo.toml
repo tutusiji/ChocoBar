@@ -1,5 +1,5 @@
 [package]
-name = "choco-panel"
+name = "choco-bar"
 version = "0.2.3"
 edition = "2021"
 
@@ -8,7 +8,7 @@ name = "ChocoBar"
 path = "src/main.rs"
 
 [lib]
-name = "choco_panel_lib"
+name = "choco_bar_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
