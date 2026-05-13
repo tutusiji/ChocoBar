@@ -1,16 +1,16 @@
 {
   "name": "choco-bar",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "bump": "node scripts/bump-version.js",
-    "tauri:dev": "node scripts/bump-version.js && tauri dev",
-    "tauri:build": "node scripts/bump-version.js && tauri build"
+    "bump": "node scripts/bump-version.cjs",
+    "tauri:dev": "node scripts/bump-version.cjs && tauri dev",
+    "tauri:build": "node scripts/bump-version.cjs && tauri build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
