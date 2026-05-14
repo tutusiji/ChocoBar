@@ -7,9 +7,10 @@ use std::path::PathBuf;
 /// - `Sequential`：顺序填充模式
 /// - `FreeTile`：自由拼贴模式
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum LayoutMode {
     Sequential,
+    #[serde(alias = "freetile")]
     FreeTile,
 }
 
