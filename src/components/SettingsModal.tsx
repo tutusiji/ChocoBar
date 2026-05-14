@@ -33,6 +33,7 @@ export function SettingsModal() {
   const [localBlur, setLocalBlur] = useState(backgroundBlur);
   const [localShortcut, setLocalShortcut] = useState(shortcutKey);
   const [recording, setRecording] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const shortcutRef = useRef<HTMLDivElement>(null);
   const recordingRef = useRef(false);
   const stopRecordingRef = useRef<() => void>(() => {});
@@ -45,6 +46,7 @@ export function SettingsModal() {
       setLocalBlur(backgroundBlur);
       setLocalShortcut(shortcutKey);
       setRecording(false);
+      setPreparing(false);
       recordingRef.current = false;
     }
   }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey]);
@@ -53,6 +55,7 @@ export function SettingsModal() {
   const stopRecording = () => {
     recordingRef.current = false;
     setRecording(false);
+    setPreparing(false);
     invoke("enable_shortcut").catch((e) =>
       console.error("启用快捷键失败:", e)
     );
@@ -61,18 +64,21 @@ export function SettingsModal() {
   // 更新 stopRecording ref
   stopRecordingRef.current = stopRecording;
 
-  // 开始录制快捷键（确保全局快捷键禁用后才开始录制）
+  // 开始录制快捷键（先禁用全局快捷键，等待系统级注销完成后再进入录制状态）
   const startRecording = async () => {
     try {
-      // 先设置录制标志，确保按键事件能被处理
+      setPreparing(true);
+      // 必须等待全局快捷键注销完成，否则按键会被系统层拦截
+      await invoke("disable_shortcut");
+      // Windows UnregisterHotKey 需要额外时间在系统消息循环中生效
+      await new Promise((r) => setTimeout(r, 200));
       recordingRef.current = true;
       setRecording(true);
-      // 禁用全局快捷键
-      await invoke("disable_shortcut");
     } catch (e) {
       console.error("禁用快捷键失败:", e);
       recordingRef.current = false;
       setRecording(false);
+      setPreparing(false);
     }
   };
 
@@ -112,7 +118,7 @@ export function SettingsModal() {
 
   // 失焦时停止录制并重新启用全局快捷键
   useEffect(() => {
-    if (!recording) return;
+    if (!recording && !preparing) return;
     const handleClick = (e: MouseEvent) => {
       if (
         shortcutRef.current &&
@@ -123,7 +129,7 @@ export function SettingsModal() {
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [recording]);
+  }, [recording, preparing]);
 
   if (!settingsOpen) return null;
 
@@ -132,6 +138,7 @@ export function SettingsModal() {
     setWindowSize(width, height);
     setOpacity(localOpacity);
     setBackgroundBlur(localBlur);
+    setPreparing(false);
     if (localShortcut !== shortcutKey) {
       saveShortcutKey(localShortcut);
     } else {
@@ -216,7 +223,7 @@ export function SettingsModal() {
             <label>切换</label>
             <div
               ref={shortcutRef}
-              className={`shortcut-input ${recording ? "recording" : ""}`}
+              className={`shortcut-input ${recording || preparing ? "recording" : ""}`}
               onClick={startRecording}
               tabIndex={0}
               onKeyDown={(e) => {
@@ -225,9 +232,11 @@ export function SettingsModal() {
                 }
               }}
             >
-              {recording
-                ? "请按下快捷键..."
-                : formatShortcut(localShortcut)}
+              {preparing && !recording
+                ? "准备中..."
+                : recording
+                  ? "请按下快捷键..."
+                  : formatShortcut(localShortcut)}
             </div>
           </div>
           <div className="settings-hint">

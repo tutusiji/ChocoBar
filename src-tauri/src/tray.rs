@@ -55,7 +55,7 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&exit_item)
         .build()?;
 
-    let _tray = TrayIconBuilder::new()
+    let _tray = TrayIconBuilder::with_id("main-tray")
         .icon(Image::from_path("icons/icon.png").unwrap_or_else(|_| {
             Image::from_bytes(include_bytes!("../icons/icon.png"))
                 .expect("加载托盘图标失败")
