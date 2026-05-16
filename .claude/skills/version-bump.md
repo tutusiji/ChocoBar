@@ -15,7 +15,7 @@ description: 版本号自动递增规则 - 每次打包时自动增加 patch 版
 - 本地打包：`npm run tauri:build`
 - 本地开发：`npm run tauri:dev`
 - 手动递增：`npm run bump`
-- GitHub Actions 推送到 tauriV2 分支时
+- GitHub Actions 推送到 main 分支时
 
 ## 版本号格式
 
@@ -50,7 +50,7 @@ npm run bump
 ```
 
 ### GitHub Actions
-推送到 tauriV2 分支时，CI 会自动递增版本号并创建 Release。
+合并到 main 分支并推送时，CI 会自动递增版本号、生成 changelog 并创建 Release。使用 `/release` 触发。
 
 ## 注意事项
 
