@@ -16,6 +16,7 @@ jobs:
     outputs:
       version: ${{ steps.bump.outputs.version }}
       tag: ${{ steps.bump.outputs.tag }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,6 +44,52 @@ jobs:
 
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # 获取上一个 tag，如果没有则从第一个 commit 开始
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+
+          # 提取 commit 信息，排除版本 bump 的自动提交
+          COMMITS=$(git log $RANGE --pretty=format:"%s" --no-merges \
+            | grep -v "^chore(release): bump version" \
+            | sed 's/^feat(frontend): /🚀 前端: /' \
+            | sed 's/^feat(backend): /🚀 后端: /' \
+            | sed 's/^feat(frontend,backend): /🚀 功能: /' \
+            | sed 's/^feat(ui): /🚀 界面: /' \
+            | sed 's/^feat(shortcut): /🚀 快捷键: /' \
+            | sed 's/^feat(tray): /🚀 托盘: /' \
+            | sed 's/^feat(state): /🚀 状态: /' \
+            | sed 's/^feat(config): /🚀 配置: /' \
+            | sed 's/^feat: /🚀 /' \
+            | sed 's/^fix(frontend): /🐛 前端: /' \
+            | sed 's/^fix(backend): /🐛 后端: /' \
+            | sed 's/^fix(shortcut): /🐛 快捷键: /' \
+            | sed 's/^fix(ui): /🐛 界面: /' \
+            | sed 's/^fix: /🐛 /' \
+            | sed 's/^refactor: /♻️ /' \
+            | sed 's/^perf: /⚡ /' \
+            | sed 's/^docs: /📝 /' \
+            | sed 's/^style: /💄 /' \
+            | sed 's/^chore: /🔧 /' \
+            | sed 's/^ci: /👷 /' \
+            | sed 's/^test: /✅ /')
+
+          # 如果没有有效 commit，显示默认信息
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- 常规更新和优化"
+          fi
+
+          # 输出 changelog（使用 EOF 分隔符处理多行）
+          echo "changelog<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
 
       - name: Update version in files
         run: |
@@ -109,7 +156,8 @@ jobs:
           releaseBody: |
             ## ChocoBar ${{ needs.version.outputs.tag }}
 
-            请查看下方资源下载对应版本的安装包。
+            ### 更新内容
+            ${{ needs.version.outputs.changelog }}
 
             ### 下载说明
             - **ChocoBar-x.x.x-x64-setup.exe** - 64 位 Windows 安装程序（推荐）
