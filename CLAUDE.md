@@ -1,8 +1,8 @@
-# ChocoPanel 项目规范
+# ChocoBar 项目规范
 
 ## 项目概述
 
-ChocoPanel 是一个基于 Tauri v2 的 Windows 快速启动面板应用。双击快捷键（默认 `Ctrl+Space`）即可显示/隐藏浮动面板，快速访问常用应用。
+ChocoBar 是一个基于 Tauri v2 的 Windows 快速启动面板应用。双击快捷键（默认 `Ctrl+Space`）即可显示/隐藏浮动面板，快速访问常用应用。
 
 - **后端**: Rust (edition 2021)
 - **前端**: React 18 + TypeScript + Vite 6
@@ -160,7 +160,7 @@ npm run tauri build
 ## 项目结构
 
 ```
-ChocoPanel/
+ChocoBar/
 ├── src/                        # React 前端
 │   ├── components/             # UI 组件
 │   │   ├── Panel.tsx           # 面板主组件
@@ -194,7 +194,7 @@ ChocoPanel/
 ## 注意事项
 
 - 窗口配置为无边框、透明背景、始终置顶、不在任务栏显示
-- 应用状态保存在 `%APPDATA%/ChocoPanel/state.json`
+- 应用状态保存在 `%APPDATA%/ChocoBar/state.json`
 - 双击检测阈值为 500ms，最小间隔 50ms（防抖）
 - 布局模式：顺序模式（自动填充）和自由拼贴模式（指定坐标）
 - 网格列数和行数根据面板宽高自动计算（单元格 88px + 间距 6px）

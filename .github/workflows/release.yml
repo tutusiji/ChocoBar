@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - tauriV2
+      - main
   workflow_dispatch:
 
 permissions:

@@ -1,8 +1,8 @@
-# ChocoPanel Development Guide
+# ChocoBar Development Guide
 
 ## Architecture Overview
 
-ChocoPanel is a Tauri v2 application with a Rust backend and React frontend. The backend handles Windows system integration (app discovery, global shortcuts, system tray), while the frontend provides the UI.
+ChocoBar is a Tauri v2 application with a Rust backend and React frontend. The backend handles Windows system integration (app discovery, global shortcuts, system tray), while the frontend provides the UI.
 
 ## Tech Stack Details
 
@@ -62,7 +62,7 @@ Filters out:
 
 ### State Persistence
 
-App state is saved to `%APPDATA%/ChocoPanel/state.json`:
+App state is saved to `%APPDATA%/ChocoBar/state.json`:
 ```json
 {
   "pinned_apps": [

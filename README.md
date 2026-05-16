@@ -67,7 +67,7 @@ npm run tauri build
 ## 项目结构
 
 ```
-ChocoPanel/
+ChocoBar/
 ├── src/                        # React 前端
 │   ├── components/             # UI 组件
 │   │   ├── Panel.tsx           # 面板主组件

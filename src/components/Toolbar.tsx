@@ -46,7 +46,7 @@ export function Toolbar() {
   return (
     <div className="toolbar">
       <div className="toolbar-left">
-        <span className="toolbar-title">ChocoPanel</span>
+        <span className="toolbar-title">ChocoBar</span>
         <button
           className="btn"
           onClick={() => setSearchOpen(true)}

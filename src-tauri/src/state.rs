@@ -62,7 +62,7 @@ pub struct PinnedApp {
     pub order: u32,
 }
 
-/// 应用全局状态，保存在 `%APPDATA%/ChocoPanel/state.json`
+/// 应用全局状态，保存在 `%APPDATA%/ChocoBar/state.json`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppState {
@@ -106,11 +106,11 @@ impl Default for AppState {
 }
 
 impl AppState {
-    /// 获取状态文件的存储路径（`%APPDATA%/ChocoPanel/state.json`）
+    /// 获取状态文件的存储路径（`%APPDATA%/ChocoBar/state.json`）
     fn state_path() -> PathBuf {
         let dir = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("ChocoPanel");
+            .join("ChocoBar");
         fs::create_dir_all(&dir).ok();
         dir.join("state.json")
     }

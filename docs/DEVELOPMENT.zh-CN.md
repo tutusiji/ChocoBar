@@ -1,8 +1,8 @@
-# ChocoPanel 开发指南
+# ChocoBar 开发指南
 
 ## 架构概述
 
-ChocoPanel 是一个 Tauri v2 应用，采用 Rust 后端 + React 前端架构。后端负责 Windows 系统集成（应用发现、全局快捷键、系统托盘），前端负责 UI 展示。
+ChocoBar 是一个 Tauri v2 应用，采用 Rust 后端 + React 前端架构。后端负责 Windows 系统集成（应用发现、全局快捷键、系统托盘），前端负责 UI 展示。
 
 ## 技术栈详情
 
@@ -62,7 +62,7 @@ ChocoPanel 是一个 Tauri v2 应用，采用 Rust 后端 + React 前端架构�
 
 ### 状态持久化
 
-应用状态保存到 `%APPDATA%/ChocoPanel/state.json`：
+应用状态保存到 `%APPDATA%/ChocoBar/state.json`：
 ```json
 {
   "pinned_apps": [
