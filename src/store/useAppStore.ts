@@ -32,6 +32,9 @@ interface AppStore {
   appInfo: AppInfo | null;
   updateInfo: UpdateInfo | null;
   shortcutKey: string;
+  autoStart: boolean;
+  closeOnLaunch: boolean;
+  launchingAppId: string | null;
 
   loadState: () => Promise<void>;
   saveState: () => Promise<void>;
@@ -59,6 +62,9 @@ interface AppStore {
   launchApp: (path: string) => Promise<void>;
   setShortcutKey: (key: string) => void;
   saveShortcutKey: (key: string) => Promise<void>;
+  setAutoStart: (autoStart: boolean) => Promise<void>;
+  setCloseOnLaunch: (closeOnLaunch: boolean) => void;
+  setLaunchingAppId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -83,6 +89,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   appInfo: null,
   updateInfo: null,
   shortcutKey: "ctrl+space",
+  autoStart: true,
+  closeOnLaunch: true,
+  launchingAppId: null,
 
   /** 从后端加载持久化状态 */
   loadState: async () => {
@@ -103,6 +112,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         backgroundMode: state.background_mode,
         backgroundBlur: (state as any).background_blur ?? 0,
         shortcutKey: state.shortcut_key || "ctrl+space",
+        autoStart: (state as any).auto_start ?? true,
+        closeOnLaunch: (state as any).close_on_launch ?? true,
         windowWidth: w,
         windowHeight: h,
       });
@@ -121,6 +132,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       backgroundMode,
       backgroundBlur,
       shortcutKey,
+      autoStart,
+      closeOnLaunch,
     } = get();
     try {
       await invoke("save_state", {
@@ -131,6 +144,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         backgroundMode,
         backgroundBlur,
         shortcutKey,
+        autoStart,
+        closeOnLaunch,
       });
     } catch (e) {
       console.error("保存状态失败:", e);
@@ -397,5 +412,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (e) {
       console.error("更新快捷键失败:", e);
     }
+  },
+
+  /** 设置开机自启动，同步调用后端 autostart 插件 */
+  setAutoStart: async (autoStart: boolean) => {
+    try {
+      if (autoStart) {
+        await invoke("plugin:autostart|enable");
+      } else {
+        await invoke("plugin:autostart|disable");
+      }
+      set({ autoStart });
+      get().saveState();
+    } catch (e) {
+      console.error("设置开机自启失败:", e);
+    }
+  },
+
+  /** 设置启动应用后是否自动关闭面板 */
+  setCloseOnLaunch: (closeOnLaunch: boolean) => {
+    set({ closeOnLaunch });
+    get().saveState();
+  },
+
+  /** 设置正在启动的应用 ID（用于 loading 效果） */
+  setLaunchingAppId: (id: string | null) => {
+    set({ launchingAppId: id });
   },
 }));

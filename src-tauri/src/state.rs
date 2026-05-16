@@ -75,6 +75,17 @@ pub struct AppState {
     #[serde(default)]
     pub background_blur: u32,
     pub shortcut_key: String,
+    /// 是否开机自启动（默认 true）
+    #[serde(default = "default_true")]
+    pub auto_start: bool,
+    /// 启动应用后是否自动关闭面板（默认 true）
+    #[serde(default = "default_true")]
+    pub close_on_launch: bool,
+}
+
+/// 返回 true 的默认值函数，用于 serde 默认字段
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppState {
@@ -88,6 +99,8 @@ impl Default for AppState {
             background_mode: BackgroundMode::Stretch,
             background_blur: 0,
             shortcut_key: "ctrl+space".to_string(),
+            auto_start: true,
+            close_on_launch: true,
         }
     }
 }

@@ -102,6 +102,8 @@ pub fn save_state(
     background_mode: BackgroundMode,
     background_blur: u32,
     shortcut_key: String,
+    auto_start: bool,
+    close_on_launch: bool,
     state: State<'_, Mutex<AppState>>,
 ) {
     let mut s = state.lock().unwrap();
@@ -112,6 +114,8 @@ pub fn save_state(
     s.background_mode = background_mode;
     s.background_blur = background_blur;
     s.shortcut_key = shortcut_key;
+    s.auto_start = auto_start;
+    s.close_on_launch = close_on_launch;
     s.save();
 }
 

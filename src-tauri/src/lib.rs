@@ -8,14 +8,30 @@ mod tray;
 use state::AppState;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 /// 构建并运行 Tauri 应用
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .setup(|app| {
             app.manage(Mutex::new(AppState::load()));
+
+            // 根据保存的设置启用/禁用开机自启动
+            {
+                let state = app.try_state::<Mutex<AppState>>();
+                if let Some(s) = state {
+                    let auto_start = s.lock().unwrap().auto_start;
+                    let autostart = app.autolaunch();
+                    if auto_start {
+                        let _ = autostart.enable();
+                    } else {
+                        let _ = autostart.disable();
+                    }
+                }
+            }
 
             // 创建系统托盘图标
             if let Err(e) = tray::create_tray(app) {

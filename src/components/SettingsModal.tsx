@@ -3,9 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
 import type { BackgroundMode } from "../types";
 
+/** 快捷键预设选项 */
+const SHORTCUT_PRESETS = [
+  { label: "Ctrl + Space", value: "ctrl+space" },
+  { label: "Alt + Space", value: "alt+space" },
+] as const;
+
 /**
- * 设置面板组件
- * 支持调整窗口尺寸、透明度、背景图片和快捷键
+ * 设置面板组件（两列布局）
+ * 支持调整窗口尺寸、透明度、背景图片、快捷键、开机启动和自动关闭面板
  */
 export function SettingsModal() {
   const {
@@ -18,6 +24,8 @@ export function SettingsModal() {
     backgroundImage,
     backgroundBlur,
     shortcutKey,
+    autoStart,
+    closeOnLaunch,
     setWindowSize,
     setOpacity,
     setBackgroundMode,
@@ -25,6 +33,8 @@ export function SettingsModal() {
     setBackgroundImage,
     pickBackgroundImage,
     saveShortcutKey,
+    setAutoStart,
+    setCloseOnLaunch,
   } = useAppStore();
 
   const [width, setWidth] = useState(windowWidth);
@@ -32,12 +42,16 @@ export function SettingsModal() {
   const [localOpacity, setLocalOpacity] = useState(opacity);
   const [localBlur, setLocalBlur] = useState(backgroundBlur);
   const [localShortcut, setLocalShortcut] = useState(shortcutKey);
+  const [shortcutMode, setShortcutMode] = useState<"preset" | "custom">("preset");
   const [recording, setRecording] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [localAutoStart, setLocalAutoStart] = useState(autoStart);
+  const [localCloseOnLaunch, setLocalCloseOnLaunch] = useState(closeOnLaunch);
   const shortcutRef = useRef<HTMLDivElement>(null);
   const recordingRef = useRef(false);
   const stopRecordingRef = useRef<() => void>(() => {});
 
+  /** 打开设置面板时同步当前状态到本地变量 */
   useEffect(() => {
     if (settingsOpen) {
       setWidth(windowWidth);
@@ -45,13 +59,18 @@ export function SettingsModal() {
       setLocalOpacity(opacity);
       setLocalBlur(backgroundBlur);
       setLocalShortcut(shortcutKey);
+      setLocalAutoStart(autoStart);
+      setLocalCloseOnLaunch(closeOnLaunch);
       setRecording(false);
       setPreparing(false);
       recordingRef.current = false;
+      // 判断当前快捷键是否为预设值
+      const isPreset = SHORTCUT_PRESETS.some((p) => p.value === shortcutKey);
+      setShortcutMode(isPreset ? "preset" : "custom");
     }
-  }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey]);
+  }, [settingsOpen, windowWidth, windowHeight, opacity, backgroundBlur, shortcutKey, autoStart, closeOnLaunch]);
 
-  // 停止录制并重新启用全局快捷键
+  /** 停止录制并重新启用全局快捷键 */
   const stopRecording = () => {
     recordingRef.current = false;
     setRecording(false);
@@ -64,11 +83,10 @@ export function SettingsModal() {
   // 更新 stopRecording ref
   stopRecordingRef.current = stopRecording;
 
-  // 开始录制快捷键（先禁用全局快捷键，等待系统级注销完成后再进入录制状态）
+  /** 开始录制快捷键（先禁用全局快捷键，等待系统级注销完成后再进入录制状态） */
   const startRecording = async () => {
     try {
       setPreparing(true);
-      // 必须等待全局快捷键注销完成，否则按键会被系统层拦截
       await invoke("disable_shortcut");
       // Windows UnregisterHotKey 需要额外时间在系统消息循环中生效
       await new Promise((r) => setTimeout(r, 200));
@@ -82,14 +100,13 @@ export function SettingsModal() {
     }
   };
 
-  // 快捷键录制：监听键盘组合（使用稳定的事件处理器）
+  /** 快捷键录制：监听键盘组合（使用稳定的事件处理器） */
   useEffect(() => {
     const handleShortcutKeyDown = (e: KeyboardEvent) => {
       if (!recordingRef.current) return;
       e.preventDefault();
       e.stopPropagation();
 
-      // 忽略单独的修饰键
       if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
 
       const parts: string[] = [];
@@ -98,7 +115,6 @@ export function SettingsModal() {
       if (e.shiftKey) parts.push("shift");
       if (e.metaKey) parts.push("super");
 
-      // 将按键名标准化
       let key = e.key.toLowerCase();
       if (key === " ") key = "space";
       else if (key === "escape") {
@@ -116,7 +132,7 @@ export function SettingsModal() {
     return () => window.removeEventListener("keydown", handleShortcutKeyDown, true);
   }, []);
 
-  // 失焦时停止录制并重新启用全局快捷键
+  /** 失焦时停止录制并重新启用全局快捷键 */
   useEffect(() => {
     if (!recording && !preparing) return;
     const handleClick = (e: MouseEvent) => {
@@ -133,7 +149,7 @@ export function SettingsModal() {
 
   if (!settingsOpen) return null;
 
-  // 保存所有设置并关闭面板
+  /** 保存所有设置并关闭面板 */
   const handleSave = () => {
     setWindowSize(width, height);
     setOpacity(localOpacity);
@@ -142,27 +158,32 @@ export function SettingsModal() {
     if (localShortcut !== shortcutKey) {
       saveShortcutKey(localShortcut);
     } else {
-      // 快捷键未变更，确保重新启用
       invoke("enable_shortcut").catch((e) =>
         console.error("启用快捷键失败:", e)
       );
     }
+    if (localAutoStart !== autoStart) {
+      setAutoStart(localAutoStart);
+    }
+    if (localCloseOnLaunch !== closeOnLaunch) {
+      setCloseOnLaunch(localCloseOnLaunch);
+    }
     setSettingsOpen(false);
   };
 
-  // 实时更新透明度（滑块拖动时即时生效）
+  /** 实时更新透明度（滑块拖动时即时生效） */
   const handleOpacityChange = (value: number) => {
     setLocalOpacity(value);
     setOpacity(value);
   };
 
-  // 实时更新背景模糊（滑块拖动时即时生效）
+  /** 实时更新背景模糊（滑块拖动时即时生效） */
   const handleBlurChange = (value: number) => {
     setLocalBlur(value);
     setBackgroundBlur(value);
   };
 
-  // 格式化快捷键显示
+  /** 格式化快捷键显示 */
   const formatShortcut = (key: string) => {
     return key
       .split("+")
@@ -170,11 +191,31 @@ export function SettingsModal() {
       .join(" + ");
   };
 
-  // 背景图填充模式中文名
+  /** 背景图填充模式中文名 */
   const modeLabels: Record<BackgroundMode, string> = {
     stretch: "拉伸",
     tile: "平铺",
     center: "居中",
+  };
+
+  /** 切换快捷键模式（预设/自定义） */
+  const handleShortcutModeChange = (mode: "preset" | "custom") => {
+    setShortcutMode(mode);
+    if (mode === "preset") {
+      // 切换到预设时恢复第一个预设值
+      const isPreset = SHORTCUT_PRESETS.some((p) => p.value === localShortcut);
+      if (!isPreset) {
+        setLocalShortcut(SHORTCUT_PRESETS[0].value);
+      }
+    } else {
+      // 切换到自定义时开始录制
+      startRecording();
+    }
+  };
+
+  /** 选择预设快捷键 */
+  const handlePresetChange = (value: string) => {
+    setLocalShortcut(value);
   };
 
   return (
@@ -186,126 +227,187 @@ export function SettingsModal() {
       }}
     >
       <div
-        className="settings-modal"
+        className="settings-modal settings-modal--two-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="settings-title">设置</div>
 
-        <div className="settings-section">
-          <div className="settings-section-title">窗口</div>
-          <div className="settings-row">
-            <label>宽度</label>
-            <input
-              type="number"
-              min={600}
-              max={2560}
-              value={width}
-              onChange={(e) => setWidth(Number(e.target.value))}
-            />
-            <label className="settings-unit">px</label>
-          </div>
-          <div className="settings-row">
-            <label>高度</label>
-            <input
-              type="number"
-              min={400}
-              max={1440}
-              value={height}
-              onChange={(e) => setHeight(Number(e.target.value))}
-            />
-            <label className="settings-unit">px</label>
-          </div>
-        </div>
+        <div className="settings-grid">
+          {/* 左列 */}
+          <div className="settings-col">
+            <div className="settings-section">
+              <div className="settings-section-title">窗口</div>
+              <div className="settings-row">
+                <label>宽度</label>
+                <input
+                  type="number"
+                  min={600}
+                  max={2560}
+                  value={width}
+                  onChange={(e) => setWidth(Number(e.target.value))}
+                />
+                <label className="settings-unit">px</label>
+              </div>
+              <div className="settings-row">
+                <label>高度</label>
+                <input
+                  type="number"
+                  min={400}
+                  max={1440}
+                  value={height}
+                  onChange={(e) => setHeight(Number(e.target.value))}
+                />
+                <label className="settings-unit">px</label>
+              </div>
+            </div>
 
-        <div className="settings-section">
-          <div className="settings-section-title">快捷键</div>
-          <div className="settings-row">
-            <label>切换</label>
-            <div
-              ref={shortcutRef}
-              className={`shortcut-input ${recording || preparing ? "recording" : ""}`}
-              onClick={startRecording}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  startRecording();
-                }
-              }}
-            >
-              {preparing && !recording
-                ? "准备中..."
-                : recording
-                  ? "请按下快捷键..."
-                  : formatShortcut(localShortcut)}
+            <div className="settings-section">
+              <div className="settings-section-title">快捷键</div>
+              <div className="settings-radio-group">
+                {SHORTCUT_PRESETS.map((preset) => (
+                  <label key={preset.value} className="settings-radio">
+                    <input
+                      type="radio"
+                      name="shortcut"
+                      checked={shortcutMode === "preset" && localShortcut === preset.value}
+                      onChange={() => {
+                        setShortcutMode("preset");
+                        handlePresetChange(preset.value);
+                      }}
+                    />
+                    <span>{preset.label}</span>
+                  </label>
+                ))}
+                <label className="settings-radio">
+                  <input
+                    type="radio"
+                    name="shortcut"
+                    checked={shortcutMode === "custom"}
+                    onChange={() => handleShortcutModeChange("custom")}
+                  />
+                  <span>自定义</span>
+                </label>
+              </div>
+              {shortcutMode === "custom" && (
+                <div className="settings-row">
+                  <div
+                    ref={shortcutRef}
+                    className={`shortcut-input ${recording || preparing ? "recording" : ""}`}
+                    onClick={startRecording}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") startRecording();
+                    }}
+                  >
+                    {preparing && !recording
+                      ? "准备中..."
+                      : recording
+                        ? "请按下快捷键..."
+                        : formatShortcut(localShortcut)}
+                  </div>
+                </div>
+              )}
+              <div className="settings-hint">
+                按下快捷键显示/隐藏面板
+              </div>
             </div>
           </div>
-          <div className="settings-hint">
-            按下此快捷键显示/隐藏面板
-          </div>
-        </div>
 
-        <div className="settings-section">
-          <div className="settings-section-title">外观</div>
-          <div className="settings-row">
-            <label>透明度</label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(localOpacity * 100)}
-              onChange={(e) => handleOpacityChange(Number(e.target.value) / 100)}
-              className="settings-slider"
-            />
-            <span className="settings-value">{Math.round(localOpacity * 100)}%</span>
-          </div>
-
-          <div className="settings-row">
-            <label>背景图</label>
-            <button className="btn" onClick={pickBackgroundImage}>
-              {backgroundImage ? "更换图片" : "上传图片"}
-            </button>
-            {backgroundImage && (
-              <button
-                className="btn"
-                onClick={() => setBackgroundImage(null)}
-              >
-                移除
-              </button>
-            )}
-          </div>
-
-          {backgroundImage && (
-            <>
+          {/* 右列 */}
+          <div className="settings-col">
+            <div className="settings-section">
+              <div className="settings-section-title">外观</div>
               <div className="settings-row">
-                <label>模糊</label>
+                <label>透明度</label>
                 <input
                   type="range"
                   min={0}
-                  max={30}
-                  value={localBlur}
-                  onChange={(e) => handleBlurChange(Number(e.target.value))}
+                  max={100}
+                  value={Math.round(localOpacity * 100)}
+                  onChange={(e) => handleOpacityChange(Number(e.target.value) / 100)}
                   className="settings-slider"
                 />
-                <span className="settings-value">{localBlur}px</span>
+                <span className="settings-value">{Math.round(localOpacity * 100)}%</span>
+              </div>
+
+              <div className="settings-row">
+                <label>背景图</label>
+                <button className="btn" onClick={pickBackgroundImage}>
+                  {backgroundImage ? "更换图片" : "上传图片"}
+                </button>
+                {backgroundImage && (
+                  <button
+                    className="btn"
+                    onClick={() => setBackgroundImage(null)}
+                  >
+                    移除
+                  </button>
+                )}
+              </div>
+
+              {backgroundImage && (
+                <>
+                  <div className="settings-row">
+                    <label>模糊</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      value={localBlur}
+                      onChange={(e) => handleBlurChange(Number(e.target.value))}
+                      className="settings-slider"
+                    />
+                    <span className="settings-value">{localBlur}px</span>
+                  </div>
+                  <div className="settings-row">
+                    <label>填充</label>
+                    <div className="settings-btn-group">
+                      {(["stretch", "tile", "center"] as BackgroundMode[]).map(
+                        (mode) => (
+                          <button
+                            key={mode}
+                            className={`btn ${backgroundMode === mode ? "active" : ""}`}
+                            onClick={() => setBackgroundMode(mode)}
+                          >
+                            {modeLabels[mode]}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-section-title">行为</div>
+              <div className="settings-row">
+                <label>开机启动</label>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={localAutoStart}
+                    onChange={(e) => setLocalAutoStart(e.target.checked)}
+                  />
+                  <span className="settings-toggle-slider" />
+                </label>
               </div>
               <div className="settings-row">
-                <label>填充</label>
-                <div className="settings-btn-group">
-                  {(["stretch", "tile", "center"] as BackgroundMode[]).map(
-                    (mode) => (
-                      <button
-                        key={mode}
-                        className={`btn ${backgroundMode === mode ? "active" : ""}`}
-                        onClick={() => setBackgroundMode(mode)}
-                      >
-                        {modeLabels[mode]}
-                      </button>
-                    )
-                  )}
-                </div>
+                <label>启动后关闭</label>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={localCloseOnLaunch}
+                    onChange={(e) => setLocalCloseOnLaunch(e.target.checked)}
+                  />
+                  <span className="settings-toggle-slider" />
+                </label>
               </div>
-            </>
-          )}
+              <div className="settings-hint">
+                打开应用后自动收起面板
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="settings-footer">

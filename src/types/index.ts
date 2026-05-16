@@ -54,6 +54,10 @@ export interface AppState {
   background_blur: number;
   /** 全局快捷键（如 "ctrl+space"） */
   shortcut_key: string;
+  /** 是否开机自启动 */
+  auto_start: boolean;
+  /** 启动应用后是否自动关闭面板 */
+  close_on_launch: boolean;
 }
 
 /** 应用信息（关于对话框） */
