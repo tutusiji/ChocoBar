@@ -739,6 +739,13 @@
   opacity: 0.7;
 }
 
+.settings-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 4px;
+  padding-left: 72px;
+}
+
 .settings-slider {
   -webkit-appearance: none;
   appearance: none;

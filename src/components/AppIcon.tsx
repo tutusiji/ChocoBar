@@ -31,7 +31,7 @@ export function AppIcon({ app, draggable, onMouseDown }: AppIconProps) {
     try {
       await launchApp(app.path);
     } finally {
-      setTimeout(() => setLaunchingAppId(null), 1500);
+      setTimeout(() => setLaunchingAppId(null), 2500);
     }
 
     if (closeOnLaunch) {

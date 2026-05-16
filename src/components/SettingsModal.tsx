@@ -47,6 +47,7 @@ export function SettingsModal() {
   const [preparing, setPreparing] = useState(false);
   const [localAutoStart, setLocalAutoStart] = useState(autoStart);
   const [localCloseOnLaunch, setLocalCloseOnLaunch] = useState(closeOnLaunch);
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
   const shortcutRef = useRef<HTMLDivElement>(null);
   const recordingRef = useRef(false);
   const stopRecordingRef = useRef<() => void>(() => {});
@@ -63,6 +64,7 @@ export function SettingsModal() {
       setLocalCloseOnLaunch(closeOnLaunch);
       setRecording(false);
       setPreparing(false);
+      setShortcutError(null);
       recordingRef.current = false;
       // 判断当前快捷键是否为预设值
       const isPreset = SHORTCUT_PRESETS.some((p) => p.value === shortcutKey);
@@ -149,14 +151,20 @@ export function SettingsModal() {
 
   if (!settingsOpen) return null;
 
-  /** 保存所有设置并关闭面板 */
-  const handleSave = () => {
+  /** 保存所有设置并关闭面板，快捷键注册失败时显示错误提示 */
+  const handleSave = async () => {
     setWindowSize(width, height);
     setOpacity(localOpacity);
     setBackgroundBlur(localBlur);
     setPreparing(false);
     if (localShortcut !== shortcutKey) {
-      saveShortcutKey(localShortcut);
+      const ok = await saveShortcutKey(localShortcut);
+      if (!ok) {
+        setShortcutError("快捷键被占用或注册失败，请更换其他快捷键");
+        invoke("enable_shortcut").catch(() => {});
+        return;
+      }
+      setShortcutError(null);
     } else {
       invoke("enable_shortcut").catch((e) =>
         console.error("启用快捷键失败:", e)
@@ -310,6 +318,9 @@ export function SettingsModal() {
               <div className="settings-hint">
                 按下快捷键显示/隐藏面板
               </div>
+              {shortcutError && (
+                <div className="settings-error">{shortcutError}</div>
+              )}
             </div>
           </div>
 
@@ -393,7 +404,7 @@ export function SettingsModal() {
                 </label>
               </div>
               <div className="settings-row">
-                <label>启动后关闭</label>
+                <label>应用启动后关闭面板</label>
                 <label className="settings-toggle">
                   <input
                     type="checkbox"
@@ -402,9 +413,6 @@ export function SettingsModal() {
                   />
                   <span className="settings-toggle-slider" />
                 </label>
-              </div>
-              <div className="settings-hint">
-                打开应用后自动收起面板
               </div>
             </div>
           </div>

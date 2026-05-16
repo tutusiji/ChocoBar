@@ -61,7 +61,7 @@ interface AppStore {
   checkUpdate: () => Promise<void>;
   launchApp: (path: string) => Promise<void>;
   setShortcutKey: (key: string) => void;
-  saveShortcutKey: (key: string) => Promise<void>;
+  saveShortcutKey: (key: string) => Promise<boolean>;
   setAutoStart: (autoStart: boolean) => Promise<void>;
   setCloseOnLaunch: (closeOnLaunch: boolean) => void;
   setLaunchingAppId: (id: string | null) => void;
@@ -405,12 +405,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ shortcutKey: key });
   },
 
-  saveShortcutKey: async (key: string) => {
+  /** 保存快捷键，返回是否成功注册 */
+  saveShortcutKey: async (key: string): Promise<boolean> => {
     try {
       await invoke("update_shortcut", { shortcutKey: key });
       set({ shortcutKey: key });
+      return true;
     } catch (e) {
       console.error("更新快捷键失败:", e);
+      return false;
     }
   },
 
