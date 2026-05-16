@@ -48,10 +48,11 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # 获取上一个 tag，如果没有则从第一个 commit 开始
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~ 2>/dev/null || echo "")
+          # 按版本号排序获取最新的 tag
+          PREV_TAG=$(git tag --sort=-v:refname | head -n 1)
           if [ -z "$PREV_TAG" ]; then
-            RANGE="HEAD"
+            # 首次发布，无历史 tag，取最近 10 条 commit
+            RANGE="HEAD~10..HEAD"
           else
             RANGE="${PREV_TAG}..HEAD"
           fi
