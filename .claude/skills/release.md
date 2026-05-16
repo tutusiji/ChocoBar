@@ -29,7 +29,43 @@ git pull --rebase origin tauriV2
 git push origin tauriV2
 ```
 
-### 2. 切换到 main 并合并
+### 2. 生成 Release 内容预览
+
+获取 main 上不存在的 tauriV2 提交，生成 changelog 预览供用户确认：
+
+```bash
+git log main..tauriV2 --pretty=format:"%s" --no-merges
+```
+
+将 commit 信息按 type 转换为带 emoji 的格式，映射规则：
+
+| type | emoji | 中文标签 |
+|------|-------|---------|
+| `feat` | 🚀 | 功能 |
+| `fix` | 🐛 | 修复 |
+| `refactor` | ♻️ | 重构 |
+| `perf` | ⚡ | 性能 |
+| `docs` | 📝 | 文档 |
+| `style` | 💄 | 样式 |
+| `chore` | 🔧 | 构建 |
+| `ci` | 👷 | CI |
+| `test` | ✅ | 测试 |
+
+排除 `chore(release): bump version` 自动提交。
+
+输出格式：
+```
+📋 本次发布内容：
+
+🚀 功能: 设置面板增强 — 快捷键单选、开机启动
+🐛 快捷键: 注册失败时显示红字错误提示
+🔧 构建: 添加 /commit 和 /release 技能
+👷 CI: 发布流程改用 main 分支
+```
+
+向用户展示预览，确认无误后继续。
+
+### 3. 切换到 main 并合并
 
 ```bash
 git checkout main
@@ -39,7 +75,7 @@ git merge tauriV2 --no-edit
 
 如果合并有冲突，提示用户手动解决后重新执行。
 
-### 3. 推送 main 触发 Actions
+### 4. 推送 main 触发 Actions
 
 ```bash
 git push origin main
@@ -51,15 +87,16 @@ git push origin main
 3. 创建 Release draft
 4. 构建安装包（.exe、.msi）
 
-### 4. 切回 tauriV2
+### 5. 切回 tauriV2
 
 ```bash
 git checkout tauriV2
 ```
 
-### 5. 输出结果
+### 6. 输出结果
 
 提示用户：
+- 展示本次发布的 changelog 内容
 - 已推送到 `main`，GitHub Actions 正在自动发布
 - 前往 GitHub → Actions 查看构建进度
 - 构建完成后前往 Releases 页面发布 draft
