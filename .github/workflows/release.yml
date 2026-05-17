@@ -167,5 +167,5 @@ jobs:
 
             ### 系统要求
             - Windows 10/11 (64-bit)
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
