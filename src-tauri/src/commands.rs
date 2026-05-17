@@ -205,7 +205,7 @@ pub fn pick_background_image() -> Option<String> {
 pub fn get_app_info() -> serde_json::Value {
     serde_json::json!({
         "name": "ChocoBar",
-        "version": "0.2.15",
+        "version": "0.2.16",
         "description": "一个快乐的巧克力板样式的应用快速启动器",
         "author": "tutusiji",
         "website": "https://tuziki.com",
