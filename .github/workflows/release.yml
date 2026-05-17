@@ -164,8 +164,23 @@ jobs:
             - **ChocoBar-x.x.x-x64-setup.exe** - 64 位 Windows 安装程序（推荐）
             - **ChocoBar-x.x.x-x64-setup.nsis.zip** - NSIS 安装包压缩版
             - **ChocoBar-x.x.x-x64.msi** - MSI 安装包
+            - **ChocoBar-x.x.x-x64-portable.zip** - 免安装版（解压即用）
 
             ### 系统要求
             - Windows 10/11 (64-bit)
           releaseDraft: false
           prerelease: false
+
+      - name: Upload portable version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          PORTABLE_NAME="ChocoBar-${VERSION}-x64-portable.zip"
+
+          # 将 ChocoBar.exe 打包为免安装版
+          Compress-Archive -Path "src-tauri\target\release\ChocoBar.exe" -DestinationPath $PORTABLE_NAME
+
+          # 上传到 Release
+          gh release upload $TAG $PORTABLE_NAME --clobber
